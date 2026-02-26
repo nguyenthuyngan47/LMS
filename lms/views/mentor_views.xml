@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_lms_mentor_tree" model="ir.ui.view">
+        <field name="name">lms.mentor.list</field>
+        <field name="model">lms.mentor</field>
+        <field name="arch" type="xml">
+            <list string="Mentor">
+                <field name="image_1920" widget="image" class="oe_avatar"/>
+                <field name="name"/>
+                <field name="email"/>
+                <field name="total_students"/>
+                <field name="is_active"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_lms_mentor_form" model="ir.ui.view">
+        <field name="name">lms.mentor.form</field>
+        <field name="model">lms.mentor</field>
+        <field name="arch" type="xml">
+            <form string="Mentor">
+                <header>
+                    <button name="action_view_students" string="Xem học viên" type="object" class="btn-primary"/>
+                    <button name="action_view_roadmaps" string="Xem Roadmap" type="object"/>
+                </header>
+                <sheet>
+                    <div class="oe_button_box" name="button_box">
+                        <button name="action_view_students" type="object" class="oe_stat_button" icon="fa-users">
+                            <field name="total_students" widget="statinfo" string="Học viên"/>
+                        </button>
+                    </div>
+                    <group>
+                        <group>
+                            <field name="image_1920" widget="image" class="oe_avatar"/>
+                            <field name="name"/>
+                            <field name="user_id"/>
+                            <field name="email"/>
+                            <field name="phone"/>
+                        </group>
+                        <group>
+                            <field name="is_active"/>
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="Ghi chú" name="notes">
+                            <field name="notes" placeholder="Ghi chú về mentor..."/>
+                        </page>
+                    </notebook>
+                </sheet>
+                <chatter/>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_lms_mentor" model="ir.actions.act_window">
+        <field name="name">Mentor</field>
+        <field name="res_model">lms.mentor</field>
+        <field name="view_mode">list,form</field>
+    </record>
+</odoo>

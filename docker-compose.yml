@@ -1,0 +1,61 @@
+services:
+  db:
+    image: postgres:15
+    container_name: odoo_db_8069
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=postgres
+      - POSTGRES_USER=odoo
+      - POSTGRES_PASSWORD=odoo
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./data/db_8069:/var/lib/postgresql/data
+    networks:
+      - odoo-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U odoo"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  odoo:
+    image: odoo:18.0
+    container_name: odoo_app_8069
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+    ports:
+      - "8069:8069"
+    environment:
+      - HOST=db
+      - USER=odoo
+      - PASSWORD=odoo
+      - ODOO_RC=/etc/odoo/odoo.conf
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+    env_file:
+      - .env
+    volumes:
+      # Thư mục dữ liệu Odoo
+      - ./data/web_8069:/var/lib/odoo
+      
+      # Log directory
+      - ./logs:/var/log/odoo
+
+      # Module tùy chỉnh
+      - ./addons:/mnt/extra-addons
+      - ./lms:/mnt/extra-addons/lms
+
+      # Cấu hình riêng
+      - ./config/odoo.conf:/etc/odoo/odoo.conf
+    networks:
+      - odoo-network
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    command: ["odoo", "--config=/etc/odoo/odoo.conf", "--dev=reload,qweb,werkzeug,xml"]
+
+networks:
+  odoo-network:
+    driver: bridge
+

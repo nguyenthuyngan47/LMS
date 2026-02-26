@@ -1,0 +1,163 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_lms_student_search" model="ir.ui.view">
+        <field name="name">lms.student.search</field>
+        <field name="model">lms.student</field>
+        <field name="arch" type="xml">
+            <search string="Tìm kiếm sinh viên">
+                <field name="name" string="Tên sinh viên"/>
+                <field name="email"/>
+                <field name="current_level"/>
+                <field name="mentor_id"/>
+                <filter string="Đang hoạt động" name="active" domain="[('is_active', '=', True)]"/>
+                <filter string="Không hoạt động" name="inactive" domain="[('is_active', '=', False)]"/>
+                <filter string="Có hoạt động gần đây" name="recent_activity" domain="[('last_activity_date', '!=', False)]"/>
+                <filter string="Chưa có hoạt động" name="no_activity" domain="[('last_activity_date', '=', False)]"/>
+                <separator/>
+                <filter string="Beginner" name="level_beginner" domain="[('current_level', '=', 'beginner')]"/>
+                <filter string="Intermediate" name="level_intermediate" domain="[('current_level', '=', 'intermediate')]"/>
+                <filter string="Advanced" name="level_advanced" domain="[('current_level', '=', 'advanced')]"/>
+                <group expand="0" string="Nhóm theo">
+                    <filter string="Trình độ" name="group_level" context="{'group_by': 'current_level'}"/>
+                    <filter string="Mentor" name="group_mentor" context="{'group_by': 'mentor_id'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="view_lms_student_tree" model="ir.ui.view">
+        <field name="name">lms.student.list</field>
+        <field name="model">lms.student</field>
+        <field name="arch" type="xml">
+            <list string="Sinh viên" decoration-info="is_active==True" decoration-muted="is_active==False">
+                <field name="image_1920" widget="image" class="oe_avatar"/>
+                <field name="name"/>
+                <field name="email"/>
+                <field name="current_level"/>
+                <field name="total_courses"/>
+                <field name="completed_courses"/>
+                <field name="average_score"/>
+                <field name="inactive_days" decoration-danger="inactive_days > 7"/>
+                <field name="is_active"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_lms_student_form" model="ir.ui.view">
+        <field name="name">lms.student.form</field>
+        <field name="model">lms.student</field>
+        <field name="arch" type="xml">
+            <form string="Sinh viên">
+                <header>
+                    <button name="action_generate_roadmap" string="Tạo Roadmap" type="object" class="btn-primary"/>
+                </header>
+                <sheet>
+                    <div class="oe_button_box" name="button_box">
+                        <button name="action_generate_roadmap" type="object" class="oe_stat_button" icon="fa-graduation-cap">
+                            <field name="roadmap_ids" widget="statinfo" string="Roadmap"/>
+                        </button>
+                    </div>
+                    <widget name="web_ribbon" title="Inactive" bg_color="text-danger" modifiers="{'invisible': [('is_active', '!=', False)]}"/>
+                    <group>
+                        <group>
+                            <field name="image_1920" widget="image" class="oe_avatar"/>
+                            <field name="name"/>
+                            <field name="email"/>
+                            <field name="phone"/>
+                        </group>
+                        <group>
+                            <field name="current_level"/>
+                            <field name="mentor_id"/>
+                            <field name="is_active"/>
+                            <field name="last_activity_date"/>
+                            <field name="inactive_days" decoration-danger="inactive_days > 7"/>
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="Mục tiêu học tập" name="goals">
+                            <group>
+                                <field name="learning_goals" placeholder="Nhập mục tiêu học tập..."/>
+                                <field name="desired_skills" placeholder="Nhập kỹ năng mong muốn..."/>
+                            </group>
+                        </page>
+                        <page string="Khóa học đã đăng ký" name="courses">
+                            <field name="enrolled_courses_ids" nolabel="1">
+                                <list>
+                                    <field name="course_id"/>
+                                    <field name="enrollment_date"/>
+                                    <field name="status"/>
+                                    <field name="progress" widget="progressbar"/>
+                                    <field name="final_score"/>
+                                </list>
+                            </field>
+                        </page>
+                        <page string="Lịch sử học tập" name="history">
+                            <field name="learning_history_ids" nolabel="1">
+                                <list>
+                                    <field name="date"/>
+                                    <field name="course_id"/>
+                                    <field name="lesson_id"/>
+                                    <field name="study_duration"/>
+                                    <field name="quiz_score"/>
+                                    <field name="status"/>
+                                </list>
+                            </field>
+                        </page>
+                        <page string="Thống kê" name="statistics">
+                            <group>
+                                <group string="Tổng quan">
+                                    <field name="total_courses"/>
+                                    <field name="completed_courses"/>
+                                    <field name="average_score"/>
+                                    <field name="total_study_time"/>
+                                </group>
+                            </group>
+                        </page>
+                    </notebook>
+                </sheet>
+                <chatter/>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_lms_student_kanban" model="ir.ui.view">
+        <field name="name">lms.student.kanban</field>
+        <field name="model">lms.student</field>
+        <field name="arch" type="xml">
+            <kanban default_group_by="current_level" class="o_kanban_dashboard">
+                <field name="name"/>
+                <field name="image_1920"/>
+                <field name="current_level"/>
+                <field name="total_courses"/>
+                <field name="completed_courses"/>
+                <field name="average_score"/>
+                <templates>
+                    <t t-name="kanban-box">
+                        <div class="oe_kanban_card oe_kanban_global_click">
+                            <div class="oe_kanban_content">
+                                <div class="o_kanban_image">
+                                    <img t-att-src="kanban_image('lms.student', 'image_1920', record.id.raw_value)" alt="Avatar"/>
+                                </div>
+                                <div class="oe_kanban_details">
+                                    <strong><field name="name"/></strong>
+                                    <div><field name="email"/></div>
+                                    <div>Trình độ: <field name="current_level"/></div>
+                                    <div>Khóa học: <field name="completed_courses"/>/<field name="total_courses"/></div>
+                                    <div>Điểm TB: <field name="average_score"/></div>
+                                </div>
+                            </div>
+                        </div>
+                    </t>
+                </templates>
+            </kanban>
+        </field>
+    </record>
+
+    <record id="action_lms_student" model="ir.actions.act_window">
+        <field name="name">Sinh viên</field>
+        <field name="res_model">lms.student</field>
+        <field name="view_mode">kanban,list,form</field>
+        <field name="search_view_id" ref="view_lms_student_search"/>
+        <field name="context">{'search_default_active': 1}</field>
+    </record>
+</odoo>

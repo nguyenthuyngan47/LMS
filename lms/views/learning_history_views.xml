@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_lms_learning_history_tree" model="ir.ui.view">
+        <field name="name">lms.learning.history.list</field>
+        <field name="model">lms.learning.history</field>
+        <field name="arch" type="xml">
+            <list string="Lịch sử học tập" decoration-danger="is_low_performance==True" decoration-warning="is_at_risk==True">
+                <field name="date"/>
+                <field name="student_id"/>
+                <field name="course_id"/>
+                <field name="lesson_id"/>
+                <field name="study_duration"/>
+                <field name="quiz_score"/>
+                <field name="score_percentage" widget="progressbar"/>
+                <field name="status"/>
+                <field name="is_low_performance" invisible="1"/>
+                <field name="is_at_risk" invisible="1"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_lms_learning_history_form" model="ir.ui.view">
+        <field name="name">lms.learning.history.form</field>
+        <field name="model">lms.learning.history</field>
+        <field name="arch" type="xml">
+            <form string="Lịch sử học tập">
+                <header>
+                    <button name="action_mark_completed" string="Đánh dấu hoàn thành" type="object" class="btn-primary" modifiers="{'invisible': [('status', '=', 'completed')]}"/>
+                </header>
+                <sheet>
+                    <group>
+                        <group>
+                            <field name="student_id"/>
+                            <field name="course_id"/>
+                            <field name="lesson_id"/>
+                            <field name="date"/>
+                        </group>
+                        <group>
+                            <field name="status"/>
+                            <field name="study_duration"/>
+                            <field name="quiz_score"/>
+                            <field name="max_score"/>
+                            <field name="score_percentage" widget="progressbar"/>
+                        </group>
+                    </group>
+                    <group>
+                        <field name="notes" placeholder="Ghi chú..."/>
+                    </group>
+                    <group>
+                        <field name="is_low_performance" invisible="1"/>
+                        <field name="is_at_risk" invisible="1"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_lms_learning_history" model="ir.actions.act_window">
+        <field name="name">Lịch sử học tập</field>
+        <field name="res_model">lms.learning.history</field>
+        <field name="view_mode">list,form</field>
+    </record>
+</odoo>
