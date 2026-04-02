@@ -26,8 +26,9 @@
                     <button name="action_reject" string="Từ chối" type="object" modifiers="{'invisible': [('state', 'in', ['rejected', 'locked'])]}"/>
                 </header>
                 <sheet>
-                    <widget name="web_ribbon" title="Approved" bg_color="text-success" modifiers="{'invisible': [('state', '!=', 'approved')]}"/>
-                    <widget name="web_ribbon" title="Locked" bg_color="text-warning" modifiers="{'invisible': [('state', '!=', 'locked')]}"/>
+                    <widget name="web_ribbon" title="Đã phê duyệt" bg_color="text-bg-success" invisible="state != 'approved'"/>
+                    <widget name="web_ribbon" title="Đã khóa" bg_color="text-bg-warning" invisible="state != 'locked'"/>
+                    <widget name="web_ribbon" title="Từ chối" bg_color="text-bg-danger" invisible="state != 'rejected'"/>
                     <div class="oe_title">
                         <label for="name" string="Roadmap"/>
                         <h1><field name="name" readonly="1" placeholder="Roadmap..."/></h1>

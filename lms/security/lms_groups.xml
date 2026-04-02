@@ -12,7 +12,6 @@
         <record id="group_lms_manager" model="res.groups">
             <field name="name">LMS Administrator</field>
             <field name="category_id" ref="module_category_lms"/>
-            <field name="implied_ids" eval="[(4, ref('base.group_user'))]"/>
             <field name="comment">Full administrative access to all LMS features: students, courses, roadmaps, AI analysis</field>
         </record>
 
@@ -20,24 +19,15 @@
         <record id="group_lms_user" model="res.groups">
             <field name="name">Student</field>
             <field name="category_id" ref="module_category_lms"/>
-            <field name="implied_ids" eval="[(4, ref('base.group_user'))]"/>
             <field name="comment">Student: view and manage own courses, learning history, and roadmaps</field>
         </record>
 
         <!-- Academic Advisor Group -->
-        <record id="group_lms_mentor" model="res.groups">
-            <field name="name">Academic Advisor</field>
-            <field name="category_id" ref="module_category_lms"/>
-            <field name="implied_ids" eval="[(4, ref('group_lms_user'))]"/>
-            <field name="comment">Academic Advisor: monitor and support assigned students, manage roadmaps and learning progress</field>
-        </record>
-
         <!-- Instructor Group -->
         <record id="group_lms_instructor" model="res.groups">
             <field name="name">Instructor</field>
             <field name="category_id" ref="module_category_lms"/>
-            <field name="implied_ids" eval="[(4, ref('group_lms_user'))]"/>
-            <field name="comment">Instructor: create and manage course content (Courses, Lessons, Quizzes). No student monitoring access</field>
+            <field name="comment">Instructor: create and manage course content (courses and lessons). No student monitoring access</field>
         </record>
     </data>
 </odoo>

@@ -41,7 +41,8 @@ class Course(models.Model):
     _inherit = ['mail.thread', 'mail.activity.mixin']
 
     name = fields.Char(string='Tên khóa học', required=True, tracking=True)
-    description = fields.Html(string='Mô tả', tracking=True)
+    # mail.tracking không hỗ trợ field Html, chỉ giữ hiển thị nội dung.
+    description = fields.Html(string='Mô tả')
     image_1920 = fields.Image(string='Ảnh khóa học', max_width=1920, max_height=1920)
     
     # Phân loại
@@ -135,51 +136,7 @@ class Lesson(models.Model):
     video_attachment = fields.Binary(string='File video', attachment=True)
     pdf_attachment = fields.Binary(string='File PDF', attachment=True)
     pdf_filename = fields.Char(string='Tên file PDF')
-    
-    # Quiz
-    quiz_ids = fields.One2many('lms.quiz', 'lesson_id', string='Câu hỏi quiz')
-    has_quiz = fields.Boolean(string='Có quiz', compute='_compute_has_quiz')
-    
+
     # Thời lượng
     duration_minutes = fields.Integer(string='Thời lượng (phút)')
-    
-    @api.depends('quiz_ids')
-    def _compute_has_quiz(self):
-        for record in self:
-            record.has_quiz = bool(record.quiz_ids)
-
-
-class Quiz(models.Model):
-    _name = 'lms.quiz'
-    _description = 'Câu hỏi quiz'
-    _order = 'sequence, name'
-
-    name = fields.Char(string='Câu hỏi', required=True)
-    sequence = fields.Integer(string='Thứ tự', default=10)
-    lesson_id = fields.Many2one('lms.lesson', string='Bài học', required=True, ondelete='cascade')
-    
-    question_type = fields.Selection([
-        ('multiple_choice', 'Trắc nghiệm'),
-        ('true_false', 'Đúng/Sai'),
-        ('short_answer', 'Câu trả lời ngắn'),
-    ], string='Loại câu hỏi', default='multiple_choice', required=True)
-    
-    options = fields.Text(string='Các lựa chọn (mỗi dòng một lựa chọn)')
-    correct_answer = fields.Char(string='Đáp án đúng', required=True)
-    points = fields.Integer(string='Điểm số', default=1)
-    
-    def get_options_list(self):
-        """Trả về danh sách các lựa chọn dưới dạng list"""
-        if not self.options:
-            return []
-        return [opt.strip() for opt in self.options.split('\n') if opt.strip()]
-    
-    def check_answer(self, user_answer):
-        """Kiểm tra đáp án của người dùng"""
-        if not user_answer:
-            return False
-        # So sánh không phân biệt hoa thường và loại bỏ khoảng trắng
-        user_answer_clean = user_answer.strip().lower()
-        correct_answer_clean = self.correct_answer.strip().lower()
-        return user_answer_clean == correct_answer_clean
 

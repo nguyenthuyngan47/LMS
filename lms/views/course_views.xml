@@ -100,7 +100,7 @@
                             <field name="enrolled_students_count" widget="statinfo" string="Học viên"/>
                         </button>
                     </div>
-                    <widget name="web_ribbon" title="Published" bg_color="text-success" modifiers="{'invisible': [('state', '!=', 'published')]}"/>
+                    <widget name="web_ribbon" title="Published" bg_color="text-bg-success" invisible="state != 'published'"/>
                     <group>
                         <group>
                             <field name="image_1920" widget="image" class="oe_avatar"/>
@@ -132,7 +132,6 @@
                                     <field name="sequence" widget="handle"/>
                                     <field name="name"/>
                                     <field name="duration_minutes"/>
-                                    <field name="has_quiz"/>
                                 </list>
                                 <form>
                                     <sheet>
@@ -150,34 +149,6 @@
                                             <field name="video_url"/>
                                             <field name="video_attachment" filename="video_filename"/>
                                             <field name="pdf_attachment" filename="pdf_filename"/>
-                                        </group>
-                                        <group string="Quiz">
-                                            <field name="quiz_ids" nolabel="1">
-                                                <list>
-                                                    <field name="sequence" widget="handle"/>
-                                                    <field name="name"/>
-                                                    <field name="question_type"/>
-                                                    <field name="points"/>
-                                                </list>
-                                                <form>
-                                                    <sheet>
-                                                        <group>
-                                                            <group>
-                                                                <field name="name"/>
-                                                                <field name="sequence"/>
-                                                                <field name="question_type"/>
-                                                                <field name="points"/>
-                                                            </group>
-                                                        </group>
-                                                        <group>
-                                                            <field name="options" placeholder="Mỗi dòng một lựa chọn (cho trắc nghiệm)"/>
-                                                        </group>
-                                                        <group>
-                                                            <field name="correct_answer"/>
-                                                        </group>
-                                                    </sheet>
-                                                </form>
-                                            </field>
                                         </group>
                                     </sheet>
                                 </form>

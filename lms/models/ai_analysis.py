@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 
 from odoo import models, fields, api
-from datetime import datetime, timedelta
 import logging
 import requests
 import json
@@ -294,33 +293,7 @@ Chỉ trả về JSON, không có text thêm.
                         'priority': 'high',
                     })
         
-        # Luật 2: Điểm quiz < 50% → Gợi ý học lại hoặc tài liệu phụ trợ
-        low_score_histories = self.env['lms.learning.history'].search([
-            ('student_id', '=', student_id),
-            ('quiz_score', '<', 50),
-            ('max_score', '>', 0),
-        ])
-        
-        for history in low_score_histories:
-            if history.course_id:
-                # Gợi ý học lại khóa học hoặc khóa học bổ trợ
-                supplementary_courses = self.env['lms.course'].search([
-                    ('category_id', '=', history.course_id.category_id.id),
-                    ('level_id', '=', history.course_id.level_id.id),
-                    ('state', '=', 'published'),
-                    ('id', '!=', history.course_id.id),
-                    ('id', 'not in', student.enrolled_courses_ids.mapped('course_id').ids),
-                ], limit=3)
-                
-                for course in supplementary_courses:
-                    recommendations.append({
-                        'course_id': course.id,
-                        'similarity_score': 0.8,
-                        'reason': f'Luật: Điểm thấp ở {history.course_id.name} → Gợi ý học lại/tài liệu bổ trợ',
-                        'priority': 'high',
-                    })
-        
-        # Luật 3: Không hoạt động > 7 ngày → Gợi ý khóa học dễ hoặc nhắc nhở
+        # Luật 2: Không hoạt động > 7 ngày → Gợi ý khóa học dễ hoặc nhắc nhở
         if student.inactive_days > 7:
             easy_courses = self.env['lms.course'].search([
                 ('level_id.name', 'ilike', 'beginner'),
@@ -336,7 +309,7 @@ Chỉ trả về JSON, không có text thêm.
                     'priority': 'medium',
                 })
         
-        # Luật 4: Hoàn thành khóa học → Gợi ý khóa học tiếp theo (prerequisite)
+        # Luật 3: Hoàn thành khóa học → Gợi ý khóa học tiếp theo (prerequisite)
         completed_courses = student.enrolled_courses_ids.filtered(
             lambda x: x.status == 'completed'
         ).mapped('course_id')

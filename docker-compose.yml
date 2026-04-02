@@ -1,3 +1,6 @@
+# Dữ liệu thật nằm trong các Docker volume bên dưới (Postgres + filestore Odoo).
+# Luôn dùng:  docker compose down
+# KHÔNG dùng: docker compose down -v   (cờ -v xóa volume => mất toàn bộ DB như cài mới)
 services:
   db:
     image: postgres:15
@@ -10,7 +13,7 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - ./data/db_8069:/var/lib/postgresql/data
+      - odoo_db_8069_data:/var/lib/postgresql/data
     networks:
       - odoo-network
     healthcheck:
@@ -34,18 +37,25 @@ services:
       - PASSWORD=odoo
       - ODOO_RC=/etc/odoo/odoo.conf
       - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+      # Đồng bộ CSV: master (hook + cron). 0 = tắt hết.
+      - LMS_CSV_SYNC_ENABLED=${LMS_CSV_SYNC_ENABLED:-1}
+      # Hook registry: mặc định 0 (nhanh). Cron vẫn sync khi SYNC_ENABLED=1.
+      - LMS_CSV_ON_START=${LMS_CSV_ON_START:-0}
     env_file:
       - .env
     volumes:
       # Thư mục dữ liệu Odoo
-      - ./data/web_8069:/var/lib/odoo
+      - odoo_web_8069_data:/var/lib/odoo
       
       # Log directory
-      - ./logs:/var/log/odoo
+      - odoo_8069_logs:/var/log/odoo
 
       # Module tùy chỉnh
       - ./addons:/mnt/extra-addons
       - ./lms:/mnt/extra-addons/lms
+      - ./data:/mnt/extra-addons/data:ro
+      # CSV bootstrap (post_init): trùng đường mặc định /mnt/extra-addons/data/export
+      - ./scripts/export:/mnt/extra-addons/data/export:ro
 
       # Cấu hình riêng
       - ./config/odoo.conf:/etc/odoo/odoo.conf
@@ -53,9 +63,15 @@ services:
       - odoo-network
     extra_hosts:
       - "host.docker.internal:host-gateway"
-    command: ["odoo", "--config=/etc/odoo/odoo.conf", "--dev=reload,qweb,werkzeug,xml"]
+    # Không dùng --dev mặc định (reload/qweb chậm khởi động + request). Dev: thêm --dev=reload,qweb,werkzeug,xml
+    command: ["odoo", "--config=/etc/odoo/odoo.conf"]
 
 networks:
   odoo-network:
     driver: bridge
+
+volumes:
+  odoo_db_8069_data:
+  odoo_web_8069_data:
+  odoo_8069_logs:
 

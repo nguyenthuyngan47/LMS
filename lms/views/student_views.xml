@@ -8,18 +8,16 @@
                 <field name="name" string="Tên sinh viên"/>
                 <field name="email"/>
                 <field name="current_level"/>
-                <field name="mentor_id"/>
-                <filter string="Đang hoạt động" name="active" domain="[('is_active', '=', True)]"/>
-                <filter string="Không hoạt động" name="inactive" domain="[('is_active', '=', False)]"/>
-                <filter string="Có hoạt động gần đây" name="recent_activity" domain="[('last_activity_date', '!=', False)]"/>
-                <filter string="Chưa có hoạt động" name="no_activity" domain="[('last_activity_date', '=', False)]"/>
+                <filter string="Đang hoạt động" name="active" domain="[('learning_status', '=', 'in_progress')]"/>
+                <filter string="Không hoạt động" name="inactive_long" domain="[('learning_status', '=', 'inactive')]"/>
+                <filter string="Chưa hoạt động" name="not_started" domain="[('learning_status', '=', 'not_started')]"/>
+                <filter string="Hoàn thành" name="completed" domain="[('learning_status', '=', 'completed')]"/>
                 <separator/>
                 <filter string="Beginner" name="level_beginner" domain="[('current_level', '=', 'beginner')]"/>
                 <filter string="Intermediate" name="level_intermediate" domain="[('current_level', '=', 'intermediate')]"/>
                 <filter string="Advanced" name="level_advanced" domain="[('current_level', '=', 'advanced')]"/>
                 <group expand="0" string="Nhóm theo">
                     <filter string="Trình độ" name="group_level" context="{'group_by': 'current_level'}"/>
-                    <filter string="Mentor" name="group_mentor" context="{'group_by': 'mentor_id'}"/>
                 </group>
             </search>
         </field>
@@ -36,6 +34,8 @@
                 <field name="current_level"/>
                 <field name="total_courses"/>
                 <field name="completed_courses"/>
+                <field name="learning_progress" widget="progressbar"/>
+                <field name="learning_status"/>
                 <field name="average_score"/>
                 <field name="inactive_days" decoration-danger="inactive_days > 7"/>
                 <field name="is_active"/>
@@ -57,7 +57,7 @@
                             <field name="roadmap_ids" widget="statinfo" string="Roadmap"/>
                         </button>
                     </div>
-                    <widget name="web_ribbon" title="Inactive" bg_color="text-danger" modifiers="{'invisible': [('is_active', '!=', False)]}"/>
+                    <widget name="web_ribbon" title="Chưa hoạt động" bg_color="text-bg-danger" invisible="is_active"/>
                     <group>
                         <group>
                             <field name="image_1920" widget="image" class="oe_avatar"/>
@@ -67,7 +67,6 @@
                         </group>
                         <group>
                             <field name="current_level"/>
-                            <field name="mentor_id"/>
                             <field name="is_active"/>
                             <field name="last_activity_date"/>
                             <field name="inactive_days" decoration-danger="inactive_days > 7"/>
@@ -98,7 +97,6 @@
                                     <field name="course_id"/>
                                     <field name="lesson_id"/>
                                     <field name="study_duration"/>
-                                    <field name="quiz_score"/>
                                     <field name="status"/>
                                 </list>
                             </field>
@@ -108,6 +106,8 @@
                                 <group string="Tổng quan">
                                     <field name="total_courses"/>
                                     <field name="completed_courses"/>
+                                    <field name="learning_progress" widget="progressbar"/>
+                                    <field name="learning_status"/>
                                     <field name="average_score"/>
                                     <field name="total_study_time"/>
                                 </group>

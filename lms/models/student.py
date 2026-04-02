@@ -1,6 +1,9 @@
 # -*- coding: utf-8 -*-
 
+import re
+
 from odoo import models, fields, api
+from odoo.exceptions import ValidationError
 
 
 class Student(models.Model):
@@ -14,11 +17,17 @@ class Student(models.Model):
     @api.constrains('email')
     def _check_email(self):
         """Kiểm tra định dạng email"""
-        import re
         email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
         for record in self:
             if record.email and not re.match(email_pattern, record.email):
-                raise ValueError('Email không hợp lệ. Vui lòng nhập đúng định dạng email.')
+                raise ValidationError('Email không hợp lệ. Vui lòng nhập đúng định dạng email.')
+            if record.email:
+                dup = self.search([
+                    ('id', '!=', record.id),
+                    ('email', '=ilike', record.email),
+                ], limit=1)
+                if dup:
+                    raise ValidationError('Email đã tồn tại. Vui lòng dùng email khác.')
     phone = fields.Char(string='Số điện thoại')
     image_1920 = fields.Image(string='Ảnh đại diện', max_width=1920, max_height=1920)
     
@@ -28,6 +37,11 @@ class Student(models.Model):
         ('intermediate', 'Intermediate'),
         ('advanced', 'Advanced'),
     ], string='Trình độ hiện tại', default='beginner', required=True, tracking=True)
+    manual_level_lock = fields.Boolean(
+        string='Khóa level theo nghiệp vụ',
+        default=False,
+        help='Khi bật, hệ thống không tự ghi đè current_level từ average_score.',
+    )
     
     learning_goals = fields.Text(string='Mục tiêu học tập', tracking=True)
     desired_skills = fields.Text(string='Kỹ năng mong muốn', tracking=True)
@@ -42,13 +56,29 @@ class Student(models.Model):
     roadmap_ids = fields.One2many(
         'lms.roadmap', 'student_id', string='Roadmap đề xuất'
     )
-    mentor_id = fields.Many2one('lms.mentor', string='Mentor phụ trách')
     user_id = fields.Many2one('res.users', string='User Account', ondelete='cascade', index=True, tracking=True)
     
     # Thống kê
     total_courses = fields.Integer(string='Tổng số khóa học', compute='_compute_statistics', store=True)
     completed_courses = fields.Integer(string='Khóa học đã hoàn thành', compute='_compute_statistics', store=True)
     average_score = fields.Float(string='Điểm trung bình', compute='_compute_statistics', store=True, digits=(16, 2))
+    learning_progress = fields.Float(
+        string='Tiến độ học tập (%)',
+        compute='_compute_statistics',
+        store=True,
+        digits=(16, 2),
+    )
+    learning_status = fields.Selection(
+        [
+            ('not_started', 'Chưa hoạt động'),
+            ('in_progress', 'Đang hoạt động'),
+            ('inactive', 'Không hoạt động'),
+            ('completed', 'Hoàn thành'),
+        ],
+        string='Trạng thái học tập',
+        compute='_compute_statistics',
+        store=True,
+    )
     total_study_time = fields.Float(string='Tổng thời gian học (giờ)', compute='_compute_statistics', store=True, digits=(16, 2))
     last_activity_date = fields.Date(string='Hoạt động cuối', compute='_compute_statistics', store=True, index=True)
     
@@ -56,18 +86,29 @@ class Student(models.Model):
     is_active = fields.Boolean(string='Đang hoạt động', default=True, tracking=True)
     inactive_days = fields.Integer(string='Số ngày không hoạt động', compute='_compute_inactive_days', store=True, index=True)
     
-    @api.depends('learning_history_ids.date', 'learning_history_ids.quiz_score', 'learning_history_ids.study_duration', 'enrolled_courses_ids', 'enrolled_courses_ids.status')
+    @api.depends(
+        'learning_history_ids',
+        'learning_history_ids.date',
+        'learning_history_ids.study_duration',
+        'enrolled_courses_ids',
+        'enrolled_courses_ids.status',
+        'enrolled_courses_ids.final_score',
+        'enrolled_courses_ids.progress',
+    )
     def _compute_statistics(self):
+        today = fields.Date.today()
         for record in self:
             record.total_courses = len(record.enrolled_courses_ids)
             record.completed_courses = len(record.enrolled_courses_ids.filtered(lambda x: x.status == 'completed'))
             
-            # Tính điểm trung bình
-            histories = record.learning_history_ids.filtered(lambda h: h.quiz_score)
-            if histories:
-                record.average_score = sum(histories.mapped('quiz_score')) / len(histories)
-            else:
-                record.average_score = 0.0
+            # Chỉ tính điểm trung bình từ các khóa đã hoàn thành.
+            completed_enrollments = record.enrolled_courses_ids.filtered(lambda x: x.status == 'completed')
+            scores = completed_enrollments.mapped('final_score')
+            scores = [s for s in scores if s is not None and s is not False]
+            record.average_score = (sum(scores) / len(scores)) if scores else 0.0
+            record.learning_progress = (
+                sum(record.enrolled_courses_ids.mapped('progress')) / len(record.enrolled_courses_ids)
+            ) if record.enrolled_courses_ids else 0.0
             
             # Tính tổng thời gian học
             record.total_study_time = sum(record.learning_history_ids.mapped('study_duration'))
@@ -88,6 +129,42 @@ class Student(models.Model):
                     record.last_activity_date = False
             else:
                 record.last_activity_date = False
+
+            # Quy ước trạng thái theo nghiệp vụ:
+            # 1) 0 tiến độ (ví dụ 0/5) => Chưa hoạt động
+            # 2) 100% hoặc completed đủ số khóa => Hoàn thành
+            # 3) Có tiến độ và có hoạt động <= 7 ngày => Đang hoạt động
+            # 4) Có tiến độ nhưng > 7 ngày không hoạt động => Không hoạt động
+            # Rule nghiệp vụ chốt:
+            # - 0/x (chưa hoàn thành khóa nào) => Chưa hoạt động.
+            if record.total_courses == 0 or record.completed_courses == 0:
+                record.learning_status = 'not_started'
+            elif record.completed_courses == record.total_courses or record.learning_progress >= 100.0:
+                record.learning_status = 'completed'
+            else:
+                is_recent = bool(
+                    record.last_activity_date
+                    and (today - record.last_activity_date).days <= 7
+                )
+                record.learning_status = 'in_progress' if is_recent else 'inactive'
+
+            # Boolean cũ giữ lại để filter nhanh: chỉ "Đang hoạt động" mới True.
+            record.is_active = record.learning_status == 'in_progress'
+
+    @api.model
+    def _classify_level_by_score(self, score):
+        """Phân loại trình độ theo điểm trung bình trên thang 10."""
+        if score is None:
+            return 'beginner'
+        normalized = score
+        if normalized > 10:
+            normalized = normalized / 10.0
+        normalized = max(0.0, min(10.0, normalized))
+        if normalized < 5.0:
+            return 'beginner'
+        if normalized < 8.0:
+            return 'intermediate'
+        return 'advanced'
     
     @api.depends('last_activity_date')
     def _compute_inactive_days(self):
@@ -105,12 +182,6 @@ class Student(models.Model):
                 template = self.env.ref('lms.email_template_inactive_reminder', raise_if_not_found=False)
                 if template:
                     template.send_mail(record.id, force_send=True)
-            
-            # Gửi email cho mentor nếu học viên có nguy cơ (chỉ gửi 1 lần)
-            if record.inactive_days > 7 and old_inactive_days <= 7 and record.mentor_id and record.mentor_id.user_id and record.mentor_id.user_id.email:
-                template = self.env.ref('lms.email_template_student_at_risk', raise_if_not_found=False)
-                if template:
-                    template.send_mail(record.id, force_send=True)
     
     def action_generate_roadmap(self):
         """Tạo roadmap đề xuất cho sinh viên"""
@@ -124,6 +195,31 @@ class Student(models.Model):
             'context': {'default_student_id': self.id},
         }
 
+    def action_refresh_statistics(self):
+        """Tính lại thống kê (dùng sau import SQL hoặc đồng bộ dữ liệu)."""
+        if not self:
+            return True
+        self._compute_statistics()
+        # Trình độ là field thường — cập nhật bằng write (tránh gán trong compute của field khác).
+        for record in self:
+            new_level = record._classify_level_by_score(record.average_score)
+            if not record.manual_level_lock and record.current_level != new_level:
+                record.write({'current_level': new_level})
+        self._compute_inactive_days()
+        # Đẩy các trường compute có store ra DB (sau import SQL / gọi compute tay).
+        stored_stats = [
+            'total_courses',
+            'completed_courses',
+            'average_score',
+            'learning_progress',
+            'learning_status',
+            'total_study_time',
+            'last_activity_date',
+            'inactive_days',
+        ]
+        self.flush_recordset(stored_stats)
+        return True
+
 
 class StudentCourse(models.Model):
     _name = 'lms.student.course'
@@ -131,7 +227,9 @@ class StudentCourse(models.Model):
     _rec_name = 'course_id'
 
     student_id = fields.Many2one('lms.student', string='Sinh viên', required=True, ondelete='cascade')
-    course_id = fields.Many2one('lms.course', string='Khóa học', required=True)
+    course_id = fields.Many2one(
+        'lms.course', string='Khóa học', required=True, ondelete='cascade'
+    )
     
     enrollment_date = fields.Date(string='Ngày đăng ký', default=fields.Date.today, required=True)
     start_date = fields.Date(string='Ngày bắt đầu')
@@ -144,6 +242,12 @@ class StudentCourse(models.Model):
         ('dropped', 'Bỏ cuộc'),
     ], string='Trạng thái', default='enrolled', tracking=True)
     
+    analytics_count = fields.Integer(
+        string='Analytics Count',
+        default=1,
+        help='Field kỹ thuật dùng để đếm record trong pivot/graph (SUM).',
+    )
+
     progress = fields.Float(string='Tiến độ (%)', compute='_compute_progress', store=True, digits=(16, 2))
     final_score = fields.Float(string='Điểm cuối cùng', digits=(16, 2))
     
@@ -165,5 +269,74 @@ class StudentCourse(models.Model):
     learning_history_ids = fields.One2many(
         'lms.learning.history', 'student_course_id', string='Lịch sử học tập'
     )
+
+    @api.model_create_multi
+    def create(self, vals_list):
+        records = super().create(vals_list)
+        records.mapped('student_id').action_refresh_statistics()
+        return records
+
+    def write(self, vals):
+        students = self.mapped('student_id')
+        res = super().write(vals)
+        (students | self.mapped('student_id')).action_refresh_statistics()
+        return res
+
+    def unlink(self):
+        students = self.mapped('student_id')
+        res = super().unlink()
+        if not self.env.context.get('skip_lms_statistics_refresh'):
+            students.action_refresh_statistics()
+        return res
+
+    @api.model
+    def action_merge_duplicate_enrollments(self):
+        """
+        Gộp các bản ghi đăng ký trùng (cùng student_id + course_id).
+        Giữ bản id nhỏ nhất; chuyển lịch sử sang bản giữ; gộp ngày/điểm/trạng thái hợp lý.
+        """
+        SC = self.sudo()
+        groups = {}
+        for sc in SC.search([]):
+            if not sc.student_id or not sc.course_id:
+                continue
+            key = (sc.student_id.id, sc.course_id.id)
+            groups.setdefault(key, []).append(sc)
+        merged = 0
+        History = self.env['lms.learning.history'].sudo()
+        skip_ctx = {'skip_lms_statistics_refresh': True, 'skip_lms_student_course_relink': True}
+        status_rank = {'completed': 4, 'in_progress': 3, 'enrolled': 2, 'dropped': 1}
+
+        def pick_status(a, b):
+            return a if status_rank.get(a or '', 0) >= status_rank.get(b or '', 0) else b
+
+        for key, rows in groups.items():
+            if len(rows) <= 1:
+                continue
+            rows.sort(key=lambda r: r.id)
+            keep = rows[0]
+            for dup in rows[1:]:
+                History.search([('student_course_id', '=', dup.id)]).with_context(**skip_ctx).write(
+                    {'student_course_id': keep.id}
+                )
+                vals = {}
+                if dup.enrollment_date and (not keep.enrollment_date or dup.enrollment_date < keep.enrollment_date):
+                    vals['enrollment_date'] = dup.enrollment_date
+                if dup.start_date and (not keep.start_date or dup.start_date < keep.start_date):
+                    vals['start_date'] = dup.start_date
+                if dup.completion_date and (not keep.completion_date or dup.completion_date > keep.completion_date):
+                    vals['completion_date'] = dup.completion_date
+                fs_keep = keep.final_score or 0
+                fs_dup = dup.final_score or 0
+                if fs_dup > fs_keep:
+                    vals['final_score'] = fs_dup
+                new_st = pick_status(keep.status, dup.status)
+                if new_st != keep.status:
+                    vals['status'] = new_st
+                if vals:
+                    keep.with_context(skip_lms_statistics_refresh=True).write(vals)
+                dup.with_context(skip_lms_statistics_refresh=True).unlink()
+                merged += 1
+        return merged
 
 

@@ -1,38 +1,93 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
     <data noupdate="0">
-        <!-- Record Rules - Tạm thời comment để test -->
-        <!-- Sau khi test xong, sẽ bật lại với điều kiện chỉ áp dụng cho Student role -->
-        <!--
-        <record id="lms_student_user_rule" model="ir.rule">
-            <field name="name">Sinh viên: Chỉ xem của mình hoặc sinh viên được gán</field>
+        <!-- Student: chỉ thấy dữ liệu của chính mình -->
+        <record id="rule_lms_student_self_profile" model="ir.rule">
+            <field name="name">LMS Student - Own Profile</field>
             <field name="model_id" ref="model_lms_student"/>
-            <field name="domain_force">['|', '|',
-                ('id', 'in', [user.partner_id.id]), 
-                ('mentor_id.user_id', '=', user.id),
-                ('user_has_groups', '=', 'lms.group_lms_mentor')]</field>
+            <field name="domain_force">[('user_id', '=', user.id)]</field>
             <field name="groups" eval="[(4, ref('lms.group_lms_user'))]"/>
+            <field name="perm_read" eval="1"/>
+            <field name="perm_write" eval="1"/>
+            <field name="perm_create" eval="1"/>
+            <field name="perm_unlink" eval="0"/>
         </record>
-        
-        <record id="lms_learning_history_user_rule" model="ir.rule">
-            <field name="name">Lịch sử học tập: Chỉ xem của mình hoặc sinh viên được gán</field>
+
+        <record id="rule_lms_student_course_self" model="ir.rule">
+            <field name="name">LMS Student - Own Enrollments</field>
+            <field name="model_id" ref="model_lms_student_course"/>
+            <field name="domain_force">[('student_id.user_id', '=', user.id)]</field>
+            <field name="groups" eval="[(4, ref('lms.group_lms_user'))]"/>
+            <field name="perm_read" eval="1"/>
+            <field name="perm_write" eval="1"/>
+            <field name="perm_create" eval="1"/>
+            <field name="perm_unlink" eval="0"/>
+        </record>
+
+        <record id="rule_lms_learning_history_self" model="ir.rule">
+            <field name="name">LMS Student - Own Learning History</field>
             <field name="model_id" ref="model_lms_learning_history"/>
-            <field name="domain_force">['|', '|',
-                ('student_id', 'in', [user.partner_id.id]), 
-                ('student_id.mentor_id.user_id', '=', user.id),
-                ('user_has_groups', '=', 'lms.group_lms_mentor')]</field>
+            <field name="domain_force">[('student_id.user_id', '=', user.id)]</field>
             <field name="groups" eval="[(4, ref('lms.group_lms_user'))]"/>
+            <field name="perm_read" eval="1"/>
+            <field name="perm_write" eval="1"/>
+            <field name="perm_create" eval="1"/>
+            <field name="perm_unlink" eval="0"/>
         </record>
-        
-        <record id="lms_roadmap_user_rule" model="ir.rule">
-            <field name="name">Roadmap: Chỉ xem của mình hoặc sinh viên được gán</field>
-            <field name="model_id" ref="model_lms_roadmap"/>
-            <field name="domain_force">['|', '|',
-                ('student_id', 'in', [user.partner_id.id]), 
-                ('student_id.mentor_id.user_id', '=', user.id),
-                ('user_has_groups', '=', 'lms.group_lms_mentor')]</field>
-            <field name="groups" eval="[(4, ref('lms.group_lms_user'))]"/>
+
+        <!-- Lecturer: chỉ thấy khóa học được phân công -->
+        <record id="rule_lms_course_instructor_owned" model="ir.rule">
+            <field name="name">LMS Instructor - Assigned Courses</field>
+            <field name="model_id" ref="model_lms_course"/>
+            <field name="domain_force">[('instructor_id', '=', user.id)]</field>
+            <field name="groups" eval="[(4, ref('lms.group_lms_instructor'))]"/>
+            <field name="perm_read" eval="1"/>
+            <field name="perm_write" eval="1"/>
+            <field name="perm_create" eval="1"/>
+            <field name="perm_unlink" eval="0"/>
         </record>
-        -->
+
+        <record id="rule_lms_lesson_instructor_owned_course" model="ir.rule">
+            <field name="name">LMS Instructor - Lessons Of Assigned Courses</field>
+            <field name="model_id" ref="model_lms_lesson"/>
+            <field name="domain_force">[('course_id.instructor_id', '=', user.id)]</field>
+            <field name="groups" eval="[(4, ref('lms.group_lms_instructor'))]"/>
+            <field name="perm_read" eval="1"/>
+            <field name="perm_write" eval="1"/>
+            <field name="perm_create" eval="1"/>
+            <field name="perm_unlink" eval="0"/>
+        </record>
+
+        <!-- Manager: full access -->
+        <record id="rule_lms_manager_all_student" model="ir.rule">
+            <field name="name">LMS Manager - Students All</field>
+            <field name="model_id" ref="model_lms_student"/>
+            <field name="domain_force">[(1, '=', 1)]</field>
+            <field name="groups" eval="[(4, ref('lms.group_lms_manager'))]"/>
+            <field name="perm_read" eval="1"/>
+            <field name="perm_write" eval="1"/>
+            <field name="perm_create" eval="1"/>
+            <field name="perm_unlink" eval="1"/>
+        </record>
+        <record id="rule_lms_manager_all_course" model="ir.rule">
+            <field name="name">LMS Manager - Courses All</field>
+            <field name="model_id" ref="model_lms_course"/>
+            <field name="domain_force">[(1, '=', 1)]</field>
+            <field name="groups" eval="[(4, ref('lms.group_lms_manager'))]"/>
+            <field name="perm_read" eval="1"/>
+            <field name="perm_write" eval="1"/>
+            <field name="perm_create" eval="1"/>
+            <field name="perm_unlink" eval="1"/>
+        </record>
+        <record id="rule_lms_manager_all_history" model="ir.rule">
+            <field name="name">LMS Manager - History All</field>
+            <field name="model_id" ref="model_lms_learning_history"/>
+            <field name="domain_force">[(1, '=', 1)]</field>
+            <field name="groups" eval="[(4, ref('lms.group_lms_manager'))]"/>
+            <field name="perm_read" eval="1"/>
+            <field name="perm_write" eval="1"/>
+            <field name="perm_create" eval="1"/>
+            <field name="perm_unlink" eval="1"/>
+        </record>
     </data>
 </odoo>

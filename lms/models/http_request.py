@@ -9,10 +9,7 @@ _logger = logging.getLogger(__name__)
 
 class HttpRequest(http.Request):
     """Override HttpRequest để thêm CORS headers tự động"""
-    
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-    
+
     def make_response(self, *args, **kw):
         """Override make_response để thêm CORS headers"""
         response = super().make_response(*args, **kw)

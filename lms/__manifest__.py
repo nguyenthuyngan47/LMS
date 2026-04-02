@@ -1,40 +1,37 @@
 # -*- coding: utf-8 -*-
 {
     'name': 'Learning Management System (LMS)',
-    'version': '18.0.1.0.0',
+    'version': '18.0.1.0.10',
     'category': 'Education',
     'summary': 'Hệ thống quản lý học tập với AI đề xuất khóa học',
-    'description': """
-Learning Management System với AI
-=================================
-* Quản lý sinh viên và khóa học
-* Theo dõi tiến độ học tập
-* AI đề xuất roadmap học tập
-* Content-Based Filtering và Rule-Based Recommendation
-* Quản lý mentor và giảng viên
-    """,
+    # Giữ description dạng plain text để tránh docutils/RST parse lỗi.
+    'description': 'Learning Management System (LMS) với AI đề xuất khóa học.',
     'author': 'LMS Team',
-    'depends': ['base', 'mail', 'portal'],
+    'depends': ['base', 'base_setup', 'mail', 'portal', 'calendar'],
     'external_dependencies': {
         'python': ['requests'],
     },
+    'pre_init_hook': 'pre_init_hook',
+    'post_init_hook': 'post_init_hook',
     'data': [
         'security/lms_groups.xml',
         'security/ir.model.access.csv',
         'data/remove_old_rules.xml',
+        'data/hide_odoo_calendar_app.xml',
         'security/lms_security.xml',
         'data/system_parameters.xml',
         'data/outgoing_mail_server.xml',
         'data/course_category_data.xml',
         'data/course_level_data.xml',
-        'data/demo_data.xml',
-        'data/mail_templates.xml',
+        'data/lecturer_sequence.xml',
+        'data/lms_csv_import_cron.xml',
         'views/student_views.xml',
         'views/course_views.xml',
+        'views/lecturer_views.xml',
         'views/learning_history_views.xml',
-        'views/mentor_views.xml',
         'views/roadmap_views.xml',
-        # 'views/settings_views.xml',  # Tạm comment để module load được, sẽ sửa xpath sau
+        'views/analytics_views.xml',
+        'views/settings_views.xml',
         'views/menu_views.xml',
     ],
     'demo': [],

@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 
 from odoo import models, fields, api
-from datetime import datetime, timedelta
 
 
 class Roadmap(models.Model):
@@ -27,8 +26,9 @@ class Roadmap(models.Model):
         ('rejected', 'Từ chối'),
     ], string='Trạng thái', default='draft', tracking=True)
     
-    # Mentor review
-    reviewed_by = fields.Many2one('lms.mentor', string='Được xem xét bởi', tracking=True)
+    # Roadmap review
+    # Who approved/locked/rejected the roadmap.
+    reviewed_by = fields.Many2one('res.users', string='Được xem xét bởi', tracking=True)
     review_date = fields.Datetime(string='Ngày xem xét', tracking=True)
     review_notes = fields.Text(string='Ghi chú xem xét')
     
@@ -81,10 +81,10 @@ class Roadmap(models.Model):
     
     def action_approve(self):
         """Phê duyệt roadmap"""
-        mentor = self.env['lms.mentor'].search([('user_id', '=', self.env.user.id)], limit=1)
+        reviewer = self.env.user
         self.write({
             'state': 'approved',
-            'reviewed_by': mentor.id if mentor else False,
+            'reviewed_by': reviewer.id if reviewer else False,
             'review_date': fields.Datetime.now(),
         })
         # Gửi email thông báo cho sinh viên
@@ -96,20 +96,20 @@ class Roadmap(models.Model):
     
     def action_lock(self):
         """Khóa roadmap"""
-        mentor = self.env['lms.mentor'].search([('user_id', '=', self.env.user.id)], limit=1)
+        reviewer = self.env.user
         self.write({
             'state': 'locked',
-            'reviewed_by': mentor.id if mentor else False,
+            'reviewed_by': reviewer.id if reviewer else False,
             'review_date': fields.Datetime.now(),
         })
         return True
     
     def action_reject(self):
         """Từ chối roadmap"""
-        mentor = self.env['lms.mentor'].search([('user_id', '=', self.env.user.id)], limit=1)
+        reviewer = self.env.user
         self.write({
             'state': 'rejected',
-            'reviewed_by': mentor.id if mentor else False,
+            'reviewed_by': reviewer.id if reviewer else False,
             'review_date': fields.Datetime.now(),
         })
         return True
@@ -121,7 +121,9 @@ class RoadmapCourse(models.Model):
     _order = 'priority desc, sequence'
 
     roadmap_id = fields.Many2one('lms.roadmap', string='Roadmap', required=True, ondelete='cascade')
-    course_id = fields.Many2one('lms.course', string='Khóa học', required=True)
+    course_id = fields.Many2one(
+        'lms.course', string='Khóa học', required=True, ondelete='cascade'
+    )
     
     sequence = fields.Integer(string='Thứ tự', default=10)
     priority = fields.Selection([
