@@ -7,13 +7,13 @@
             <list>
                 <field name="lecturer_id"/>
                 <field name="full_name"/>
-                <field name="username"/>
                 <field name="email"/>
+                <field name="phone_number"/>
                 <field name="department"/>
-                <field name="specialization"/>
-                <field name="status"/>
-                <field name="total_courses"/>
-                <field name="total_students"/>
+                <field name="faculty"/>
+                <field name="academic_degree"/>
+                <field name="years_of_experience"/>
+                <field name="status" string="Trạng thái"/>
             </list>
         </field>
     </record>

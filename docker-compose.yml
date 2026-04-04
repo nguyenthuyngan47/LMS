@@ -17,7 +17,8 @@ services:
     networks:
       - odoo-network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U odoo"]
+      # Dùng -d postgres: user odoo mặc định hay kết nối DB trùng tên user → tránh FATAL "database odoo does not exist"
+      test: ["CMD-SHELL", "pg_isready -U odoo -d postgres"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -53,7 +54,8 @@ services:
       # Module tùy chỉnh
       - ./addons:/mnt/extra-addons
       - ./lms:/mnt/extra-addons/lms
-      - ./data:/mnt/extra-addons/data:ro
+      # Không dùng :ro ở data: mount lồng export/ bên dưới cần tạo mountpoint (Docker sẽ mkdir trên parent).
+      - ./data:/mnt/extra-addons/data
       # CSV bootstrap (post_init): trùng đường mặc định /mnt/extra-addons/data/export
       - ./scripts/export:/mnt/extra-addons/data/export:ro
 
@@ -65,6 +67,20 @@ services:
       - "host.docker.internal:host-gateway"
     # Không dùng --dev mặc định (reload/qweb chậm khởi động + request). Dev: thêm --dev=reload,qweb,werkzeug,xml
     command: ["odoo", "--config=/etc/odoo/odoo.conf"]
+
+  # Giao diện web quản lý PostgreSQL: http://localhost:8080
+  # Đăng nhập: Hệ thống = PostgreSQL, Máy chủ = db, Tài khoản = odoo, Mật khẩu = odoo, CSDL = postgres hoặc tên DB Odoo (vd. lms)
+  adminer:
+    image: adminer:latest
+    container_name: adminer_8069
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+    networks:
+      - odoo-network
 
 networks:
   odoo-network:
