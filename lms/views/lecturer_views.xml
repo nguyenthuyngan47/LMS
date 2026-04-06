@@ -70,7 +70,7 @@
                                 </group>
                             </group>
                         </page>
-                        <page string="Nghiệp vụ LMS">
+                        <!-- <page string="Nghiệp vụ LMS">
                             <group>
                                 <field name="course_assigned">
                                     <list>
@@ -101,7 +101,7 @@
                                 <field name="created_at" readonly="1"/>
                                 <field name="updated_at" readonly="1"/>
                             </group>
-                        </page>
+                        </page> -->
                     </notebook>
                 </sheet>
             </form>
