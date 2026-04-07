@@ -53,6 +53,9 @@ class Course(models.Model):
     # Thông tin khóa học
     instructor_id = fields.Many2one('res.users', string='Giảng viên', tracking=True)
     duration_hours = fields.Float(string='Thời lượng (giờ)', digits=(16, 2), tracking=True)
+    max_student = fields.Integer(string='Số học viên tối đa')
+    start_date = fields.Date(string='Ngày bắt đầu')
+    end_date = fields.Date(string='Ngày kết thúc')
     prerequisite_ids = fields.Many2many(
         'lms.course', 'course_prerequisite_rel', 'course_id', 'prerequisite_id',
         string='Khóa học tiên quyết'
