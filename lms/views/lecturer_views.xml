@@ -46,7 +46,6 @@
                                 <group>
                                     <field name="gender"/>
                                     <field name="date_of_birth"/>
-                                    <field name="avatar_url"/>
                                     <field name="address"/>
                                 </group>
                                 <group>

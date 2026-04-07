@@ -1,9 +1,16 @@
 # -*- coding: utf-8 -*-
+"""
+Mọi bản ghi lms.student mới (form, Import CSV, RPC) đều đi qua ORM ``create()`` —
+nếu không gán ``user_id``, hệ thống tự tạo ``res.users`` (login = email), tương tự ``lms.lecturer``.
+"""
 
 import re
 
-from odoo import models, fields, api
+from odoo import _, api, fields, models
 from odoo.exceptions import ValidationError
+from odoo.tools.mail import email_normalize
+
+_DEFAULT_STUDENT_AUTO_PASSWORD = "123456"
 
 
 class Student(models.Model):
@@ -30,6 +37,13 @@ class Student(models.Model):
                     raise ValidationError('Email đã tồn tại. Vui lòng dùng email khác.')
     phone = fields.Char(string='Số điện thoại')
     image_1920 = fields.Image(string='Ảnh đại diện', max_width=1920, max_height=1920)
+    gender = fields.Selection(
+        [('male', 'Nam'), ('female', 'Nữ'), ('other', 'Khác')],
+        string='Giới tính',
+        tracking=True,
+    )
+    date_of_birth = fields.Date(string='Ngày sinh', tracking=True)
+    address = fields.Char(string='Địa chỉ', tracking=True)
     
     # Thông tin đầu vào
     current_level = fields.Selection([
@@ -56,8 +70,28 @@ class Student(models.Model):
     roadmap_ids = fields.One2many(
         'lms.roadmap', 'student_id', string='Roadmap đề xuất'
     )
-    user_id = fields.Many2one('res.users', string='User Account', ondelete='cascade', index=True, tracking=True)
-    
+    user_id = fields.Many2one(
+        'res.users',
+        string='Tài khoản',
+        required=False,
+        ondelete='cascade',
+        index=True,
+        tracking=True,
+        help='Để trống: mỗi lần tạo bản ghi (kể cả import CSV), hệ thống tự tạo res.users với login = email.',
+    )
+    username = fields.Char(
+        string='Tên đăng nhập',
+        related='user_id.login',
+        store=True,
+        readonly=True,
+    )
+    last_login = fields.Datetime(
+        string='Đăng nhập lần cuối',
+        related='user_id.login_date',
+        store=True,
+        readonly=True,
+    )
+
     # Thống kê
     total_courses = fields.Integer(string='Tổng số khóa học', compute='_compute_statistics', store=True)
     completed_courses = fields.Integer(string='Khóa học đã hoàn thành', compute='_compute_statistics', store=True)
@@ -85,7 +119,78 @@ class Student(models.Model):
     # Trạng thái
     is_active = fields.Boolean(string='Đang hoạt động', default=True, tracking=True)
     inactive_days = fields.Integer(string='Số ngày không hoạt động', compute='_compute_inactive_days', store=True, index=True)
-    
+
+    _sql_constraints = [
+        ('student_user_unique', 'unique(user_id)', 'Mỗi tài khoản chỉ gắn với một sinh viên.'),
+    ]
+
+    @api.model
+    def _needs_auto_student_user(self, vals):
+        """True khi chưa có user hợp lệ (form, CSV, API đều truyền vals qua create)."""
+        uid = vals.get('user_id')
+        if uid in (False, None, '', 0):
+            return True
+        if isinstance(uid, str) and not uid.strip():
+            return True
+        return False
+
+    @api.model
+    def _prepare_student_user_on_create(self, vals):
+        """Gán vals['user_id'] trước super().create — mọi insert ORM đều đi qua đây."""
+        if not self._needs_auto_student_user(vals):
+            return
+        display_name = (vals.get('name') or '').strip()
+        if not display_name:
+            raise ValidationError(
+                _('Thiếu tên sinh viên: bắt buộc để tạo hoặc gán tài khoản đăng nhập.')
+            )
+        email_norm = email_normalize(vals.get('email'))
+        if not email_norm:
+            raise ValidationError(
+                _('Email không hợp lệ hoặc trống. Dùng định dạng email chuẩn (kể cả khi import CSV).')
+            )
+        vals['email'] = email_norm
+        login = email_norm
+        Users = self.env['res.users'].sudo()
+        existing = Users.search([('login', '=', login)], limit=1)
+        if existing:
+            if self.sudo().search_count([('user_id', '=', existing.id)]):
+                raise ValidationError(
+                    _('Email/login đã được dùng cho sinh viên khác: %s') % login
+                )
+            vals['user_id'] = existing.id
+            return
+        student_group = self.env.ref('lms.group_lms_user', raise_if_not_found=False)
+        internal_group = self.env.ref('base.group_user')
+        group_ids = [internal_group.id]
+        if student_group:
+            group_ids.append(student_group.id)
+        company = self.env.company
+        user = Users.with_context(no_reset_password=True).create(
+            {
+                'name': display_name,
+                'login': login,
+                'email': email_norm,
+                'company_id': company.id,
+                'company_ids': [(6, 0, [company.id])],
+                'groups_id': [(6, 0, group_ids)],
+            }
+        )
+        user.write({'password': _DEFAULT_STUDENT_AUTO_PASSWORD})
+        phone = (vals.get('phone') or '').strip()
+        if phone:
+            user.partner_id.sudo().write({'phone': phone})
+        vals['user_id'] = user.id
+
+    @api.model_create_multi
+    def create(self, vals_list):
+        for vals in vals_list:
+            self._prepare_student_user_on_create(vals)
+            if vals.get('user_id') and not (vals.get('name') or '').strip():
+                user = self.env['res.users'].browse(vals['user_id'])
+                vals['name'] = user.name
+        return super().create(vals_list)
+
     @api.depends(
         'learning_history_ids',
         'learning_history_ids.date',

@@ -1,43 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-    <record id="view_lms_student_search" model="ir.ui.view">
-        <field name="name">lms.student.search</field>
-        <field name="model">lms.student</field>
-        <field name="arch" type="xml">
-            <search string="Tìm kiếm sinh viên">
-                <field name="name" string="Tên sinh viên"/>
-                <field name="email"/>
-                <field name="current_level"/>
-                <filter string="Đang hoạt động" name="active" domain="[('learning_status', '=', 'in_progress')]"/>
-                <filter string="Không hoạt động" name="inactive_long" domain="[('learning_status', '=', 'inactive')]"/>
-                <filter string="Chưa hoạt động" name="not_started" domain="[('learning_status', '=', 'not_started')]"/>
-                <filter string="Hoàn thành" name="completed" domain="[('learning_status', '=', 'completed')]"/>
-                <separator/>
-                <filter string="Beginner" name="level_beginner" domain="[('current_level', '=', 'beginner')]"/>
-                <filter string="Intermediate" name="level_intermediate" domain="[('current_level', '=', 'intermediate')]"/>
-                <filter string="Advanced" name="level_advanced" domain="[('current_level', '=', 'advanced')]"/>
-                <group expand="0" string="Nhóm theo">
-                    <filter string="Trình độ" name="group_level" context="{'group_by': 'current_level'}"/>
-                </group>
-            </search>
-        </field>
-    </record>
-
     <record id="view_lms_student_tree" model="ir.ui.view">
         <field name="name">lms.student.list</field>
         <field name="model">lms.student</field>
         <field name="arch" type="xml">
-            <list string="Sinh viên" decoration-info="is_active==True" decoration-muted="is_active==False">
-                <field name="image_1920" widget="image" class="oe_avatar"/>
+            <list string="Sinh viên">
+                <field name="id"/>
                 <field name="name"/>
                 <field name="email"/>
-                <field name="current_level"/>
-                <field name="total_courses"/>
-                <field name="completed_courses"/>
-                <field name="learning_progress" widget="progressbar"/>
-                <field name="learning_status"/>
-                <field name="average_score"/>
-                <field name="inactive_days" decoration-danger="inactive_days > 7"/>
+                <field name="phone"/>
+                <field name="username"/>
+                <field name="gender"/>
+                <field name="date_of_birth"/>
+                <field name="address"/>
                 <field name="is_active"/>
             </list>
         </field>
@@ -57,19 +32,20 @@
                             <field name="roadmap_ids" widget="statinfo" string="Roadmap"/>
                         </button>
                     </div>
-                    <widget name="web_ribbon" title="Chưa hoạt động" bg_color="text-bg-danger" invisible="is_active"/>
                     <group>
                         <group>
-                            <field name="image_1920" widget="image" class="oe_avatar"/>
                             <field name="name"/>
                             <field name="email"/>
                             <field name="phone"/>
+                            <field name="gender"/>
+                            <field name="date_of_birth"/>
+                            <field name="address"/>
                         </group>
                         <group>
+                            <field name="username" readonly="1"/>
                             <field name="current_level"/>
                             <field name="is_active"/>
-                            <field name="last_activity_date"/>
-                            <field name="inactive_days" decoration-danger="inactive_days > 7"/>
+                            <field name="last_login" readonly="1"/>
                         </group>
                     </group>
                     <notebook>
@@ -101,7 +77,7 @@
                                 </list>
                             </field>
                         </page>
-                        <page string="Thống kê" name="statistics">
+                        <!-- <page string="Thống kê" name="statistics">
                             <group>
                                 <group string="Tổng quan">
                                     <field name="total_courses"/>
@@ -112,7 +88,7 @@
                                     <field name="total_study_time"/>
                                 </group>
                             </group>
-                        </page>
+                        </page> -->
                     </notebook>
                 </sheet>
                 <chatter/>
@@ -156,8 +132,6 @@
     <record id="action_lms_student" model="ir.actions.act_window">
         <field name="name">Sinh viên</field>
         <field name="res_model">lms.student</field>
-        <field name="view_mode">kanban,list,form</field>
-        <field name="search_view_id" ref="view_lms_student_search"/>
-        <field name="context">{'search_default_active': 1}</field>
+        <field name="view_mode">list,kanban,form</field>
     </record>
 </odoo>
