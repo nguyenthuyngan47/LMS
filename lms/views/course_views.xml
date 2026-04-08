@@ -93,11 +93,34 @@
         <field name="arch" type="xml">
             <form string="Khóa học">
                 <header>
-                    <button name="action_publish" string="Xuất bản" type="object" class="btn-primary" modifiers="{'invisible': [('state', '!=', 'draft')]}"/>
+                    <!-- <button name="action_publish" string="Xuất bản" type="object" class="btn-primary" modifiers="{'invisible': [('state', '!=', 'draft')]}"/> -->
+                    <button
+                        name="action_register_courses"
+                        string="Đăng ký khóa học"
+                        type="object"
+                        class="btn-primary"
+                        invisible="state != 'published' or not show_register_button"
+                    />
+                    <button
+                        name="action_cancel_course_registration"
+                        string="Hủy đăng ký"
+                        type="object"
+                        class="btn-secondary"
+                        invisible="state != 'published' or not show_cancel_button"
+                    />
                 </header>
                 <sheet>
+                    <field name="show_register_button" invisible="1"/>
+                    <field name="show_cancel_button" invisible="1"/>
+                    <field name="show_learning_content_tabs" invisible="1"/>
                     <div class="oe_button_box" name="button_box">
-                        <button name="%(action_lms_student)d" type="action" class="oe_stat_button" icon="fa-users" context="{'search_default_course_id': id}">
+                        <button
+                            name="%(action_lms_student_by_course)d"
+                            type="action"
+                            class="oe_stat_button"
+                            icon="fa-users"
+                            context="{'course_id': id, 'from_course_students': 1}"
+                        >
                             <field name="enrolled_students_count" widget="statinfo" string="Học viên"/>
                         </button>
                     </div>
@@ -123,10 +146,10 @@
                         <page string="Khóa học tiên quyết" name="prerequisites">
                             <field name="prerequisite_ids" widget="many2many_tags"/>
                         </page>
-                        <page string="Nhãn" name="tags">
+                        <page string="Nhãn" name="tags" invisible="not show_learning_content_tabs">
                             <field name="tag_ids" widget="many2many_tags" options="{'color_field': 'color'}"/>
                         </page>
-                        <page string="Bài học" name="lessons">
+                        <page string="Bài học" name="lessons" invisible="not show_learning_content_tabs">
                             <field name="lesson_ids" nolabel="1">
                                 <list>
                                     <field name="sequence" widget="handle"/>
@@ -207,7 +230,7 @@
         <field name="binding_model_id" ref="model_lms_course"/>
         <field name="binding_view_types">list,form</field>
         <field name="state">code</field>
-        <field name="code">action = {'type': 'ir.actions.act_window_close'}</field>
+        <field name="code">action = records.action_register_courses()</field>
     </record>
 
     <record id="action_lms_course_category" model="ir.actions.act_window">

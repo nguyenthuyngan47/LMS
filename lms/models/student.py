@@ -70,6 +70,20 @@ class Student(models.Model):
     roadmap_ids = fields.One2many(
         'lms.roadmap', 'student_id', string='Roadmap đề xuất'
     )
+    current_course_registration_status = fields.Selection(
+        [
+            ('pending', 'Chờ duyệt'),
+            ('approved', 'Đã duyệt'),
+            ('rejected', 'Từ chối'),
+            ('learning', 'Đang học'),
+            ('completed', 'Hoàn thành'),
+            ('cancelled', 'Đã hủy'),
+        ],
+        string='Trạng thái đăng ký (khóa hiện tại)',
+        compute='_compute_current_course_registration_status',
+        compute_sudo=True,
+        search='_search_current_course_registration_status',
+    )
     user_id = fields.Many2one(
         'res.users',
         string='Tài khoản',
@@ -190,6 +204,39 @@ class Student(models.Model):
                 user = self.env['res.users'].browse(vals['user_id'])
                 vals['name'] = user.name
         return super().create(vals_list)
+
+    def _compute_current_course_registration_status(self):
+        """Trạng thái đăng ký của học sinh theo course_id trong context."""
+        course_id = self.env.context.get('course_id') or self.env.context.get('active_id')
+        if not course_id:
+            for rec in self:
+                rec.current_course_registration_status = False
+            return
+        enrollments = self.env['lms.student.course'].sudo().search(
+            [('student_id', 'in', self.ids), ('course_id', '=', course_id)]
+        )
+        by_student = {e.student_id.id: e.status for e in enrollments}
+        for rec in self:
+            rec.current_course_registration_status = by_student.get(rec.id) or False
+
+    def _search_current_course_registration_status(self, operator, value):
+        """
+        Cho phép filter/search theo trạng thái đăng ký của khóa học hiện tại
+        (course_id lấy từ context của action mở từ nút "Học viên").
+        """
+        course_id = self.env.context.get('course_id') or self.env.context.get('active_id')
+        if not course_id:
+            return [('id', '=', 0)]
+        enrollments = self.env['lms.student.course'].sudo().search(
+            [('course_id', '=', course_id)]
+        )
+        student_ids = enrollments.filtered(lambda e: e.status == value).mapped('student_id').ids
+        if operator in ('=', '=='):
+            return [('id', 'in', student_ids or [0])]
+        if operator in ('!=', '<>'):
+            return [('id', 'not in', student_ids)]
+        # Fallback an toàn cho các operator khác không dùng trong filter hiện tại.
+        return [('id', '=', 0)]
 
     @api.depends(
         'learning_history_ids',
@@ -341,17 +388,17 @@ class StudentCourse(models.Model):
     completion_date = fields.Date(string='Ngày hoàn thành')
     
     status = fields.Selection([
-        ('enrolled', 'Đã đăng ký'),
-        ('in_progress', 'Đang học'),
-        ('completed', 'Đã hoàn thành'),
-        ('dropped', 'Bỏ cuộc'),
-    ], string='Trạng thái', default='enrolled', tracking=True)
-    
-    analytics_count = fields.Integer(
-        string='Analytics Count',
-        default=1,
-        help='Field kỹ thuật dùng để đếm record trong pivot/graph (SUM).',
-    )
+        ('pending', 'Chờ duyệt'),
+        ('approved', 'Đã duyệt'),
+        ('rejected', 'Từ chối'),
+        ('learning', 'Đang học'),
+        ('completed', 'Hoàn thành'),
+        ('cancelled', 'Đã hủy'),
+    ], string='Trạng thái', default='pending', tracking=True)
+
+    _sql_constraints = [
+        ('student_course_unique', 'unique(student_id, course_id)', 'Student đã đăng ký khóa học này rồi!'),
+    ]
 
     progress = fields.Float(string='Tiến độ (%)', compute='_compute_progress', store=True, digits=(16, 2))
     final_score = fields.Float(string='Điểm cuối cùng', digits=(16, 2))
@@ -410,7 +457,14 @@ class StudentCourse(models.Model):
         merged = 0
         History = self.env['lms.learning.history'].sudo()
         skip_ctx = {'skip_lms_statistics_refresh': True, 'skip_lms_student_course_relink': True}
-        status_rank = {'completed': 4, 'in_progress': 3, 'enrolled': 2, 'dropped': 1}
+        status_rank = {
+            'completed': 6,
+            'learning': 5,
+            'approved': 4,
+            'pending': 3,
+            'rejected': 2,
+            'cancelled': 1,
+        }
 
         def pick_status(a, b):
             return a if status_rank.get(a or '', 0) >= status_rank.get(b or '', 0) else b

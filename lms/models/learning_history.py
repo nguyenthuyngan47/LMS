@@ -116,7 +116,7 @@ class LearningHistory(models.Model):
             sc = StudentCourse.with_context(skip_lms_statistics_refresh=True).create({
                 'student_id': sid,
                 'course_id': lesson.course_id.id,
-                'status': 'in_progress',
+                'status': 'learning',
             })
         out = dict(vals)
         out['student_course_id'] = sc.id
@@ -140,7 +140,7 @@ class LearningHistory(models.Model):
                 sc = StudentCourse.with_context(skip_lms_statistics_refresh=True).create({
                     'student_id': sid,
                     'course_id': cid,
-                    'status': 'in_progress',
+                    'status': 'learning',
                 })
             touched_sc |= sc
             to_write = self.env['lms.learning.history'].browse(
@@ -177,8 +177,8 @@ class LearningHistory(models.Model):
                     if not sc.final_score or sc.final_score <= 0:
                         vals['final_score'] = round(random.uniform(5.5, 9.2), 2)
                     sc.write(vals)
-            elif sc.progress > 0 and sc.status == 'enrolled':
-                sc.write({'status': 'in_progress'})
+            elif sc.progress > 0 and sc.status in ('pending', 'approved'):
+                sc.write({'status': 'learning'})
         students = wrong.mapped('student_id')
         if students:
             students.action_refresh_statistics()
@@ -248,7 +248,7 @@ class LearningHistory(models.Model):
             student_course = self.env['lms.student.course'].create({
                 'student_id': student_id,
                 'course_id': lesson_id.course_id.id,
-                'status': 'in_progress',
+                'status': 'learning',
             })
         
         return self.create({
