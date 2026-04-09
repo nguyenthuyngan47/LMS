@@ -83,6 +83,7 @@ class Student(models.Model):
         compute='_compute_current_course_registration_status',
         compute_sudo=True,
         search='_search_current_course_registration_status',
+        inverse='_inverse_current_course_registration_status',
     )
     user_id = fields.Many2one(
         'res.users',
@@ -104,6 +105,10 @@ class Student(models.Model):
         related='user_id.login_date',
         store=True,
         readonly=True,
+    )
+    is_instructor_restricted = fields.Boolean(
+        string='Giới hạn chỉnh sửa cho giáo viên',
+        compute='_compute_is_instructor_restricted',
     )
 
     # Thống kê
@@ -237,6 +242,91 @@ class Student(models.Model):
             return [('id', 'not in', student_ids)]
         # Fallback an toàn cho các operator khác không dùng trong filter hiện tại.
         return [('id', '=', 0)]
+
+    def _inverse_current_course_registration_status(self):
+        """Cho phép đổi trạng thái trực tiếp trên form sinh viên theo course trong context."""
+        for rec in self:
+            if not rec.current_course_registration_status:
+                continue
+            self._set_current_course_status(
+                rec.current_course_registration_status,
+                students=rec,
+                notify=False,
+            )
+
+    def _set_current_course_status(self, new_status, students=None, notify=True):
+        """Đổi trạng thái đăng ký theo khóa học hiện tại cho nhiều sinh viên."""
+        students = students or self
+        course_id = self.env.context.get('course_id') or self.env.context.get('active_id')
+        if not course_id:
+            if not notify:
+                return False
+            return {
+                'type': 'ir.actions.client',
+                'tag': 'display_notification',
+                'params': {
+                    'title': _('Cập nhật trạng thái'),
+                    'message': _('Chỉ dùng được khi mở từ màn hình Học viên của khóa học.'),
+                    'type': 'warning',
+                    'sticky': False,
+                },
+            }
+        enrollments = self.env['lms.student.course'].sudo().search(
+            [('student_id', 'in', students.ids), ('course_id', '=', course_id)]
+        )
+        updated = enrollments.filtered(lambda e: e.status != new_status)
+        if updated:
+            updated.write({'status': new_status})
+        if not notify:
+            return True
+        return {
+            'type': 'ir.actions.client',
+            'tag': 'display_notification',
+            'params': {
+                'title': _('Cập nhật trạng thái'),
+                'message': _(
+                    'Đã cập nhật trạng thái "%s" cho %s học sinh.'
+                ) % (
+                    dict(self._fields['current_course_registration_status'].selection).get(new_status, new_status),
+                    len(updated),
+                ),
+                'type': 'success',
+                'sticky': False,
+                'next': {'type': 'ir.actions.client', 'tag': 'reload'},
+            },
+        }
+
+    def _compute_is_instructor_restricted(self):
+        """
+        Giáo viên chỉ được chỉnh trạng thái đăng ký (trong flow theo khóa học),
+        không được sửa các thông tin khác của hồ sơ sinh viên.
+        """
+        user = self.env.user
+        restricted = (
+            user.has_group('lms.group_lms_instructor')
+            and not user.has_group('lms.group_lms_manager')
+            and not user.has_group('base.group_system')
+        )
+        for rec in self:
+            rec.is_instructor_restricted = restricted
+
+    def action_set_course_status_pending(self):
+        return self._set_current_course_status('pending')
+
+    def action_set_course_status_approved(self):
+        return self._set_current_course_status('approved')
+
+    def action_set_course_status_rejected(self):
+        return self._set_current_course_status('rejected')
+
+    def action_set_course_status_learning(self):
+        return self._set_current_course_status('learning')
+
+    def action_set_course_status_completed(self):
+        return self._set_current_course_status('completed')
+
+    def action_set_course_status_cancelled(self):
+        return self._set_current_course_status('cancelled')
 
     @api.depends(
         'learning_history_ids',

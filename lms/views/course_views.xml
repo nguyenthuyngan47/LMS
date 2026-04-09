@@ -119,7 +119,7 @@
                             type="action"
                             class="oe_stat_button"
                             icon="fa-users"
-                            context="{'course_id': id, 'from_course_students': 1}"
+                            context="{'course_id': id, 'from_course_students': 1, 'form_view_initial_mode': 'edit'}"
                         >
                             <field name="enrolled_students_count" widget="statinfo" string="Học viên"/>
                         </button>
