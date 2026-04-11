@@ -4,10 +4,8 @@ Mọi bản ghi lms.student mới (form, Import CSV, RPC) đều đi qua ORM ``c
 nếu không gán ``user_id``, hệ thống tự tạo ``res.users`` (login = email), tương tự ``lms.lecturer``.
 """
 
-import re
-
 from odoo import _, api, fields, models
-from odoo.exceptions import ValidationError
+from odoo.exceptions import AccessError, ValidationError
 from odoo.tools.mail import email_normalize
 
 _DEFAULT_STUDENT_AUTO_PASSWORD = "123456"
@@ -23,18 +21,24 @@ class Student(models.Model):
     
     @api.constrains('email')
     def _check_email(self):
-        """Kiểm tra định dạng email"""
-        email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+        """Định dạng email theo chuẩn Odoo (odoo.tools.mail.email_normalize)."""
         for record in self:
-            if record.email and not re.match(email_pattern, record.email):
-                raise ValidationError('Email không hợp lệ. Vui lòng nhập đúng định dạng email.')
-            if record.email:
-                dup = self.search([
+            if not (record.email or '').strip():
+                continue
+            email_norm = email_normalize(record.email)
+            if not email_norm:
+                raise ValidationError(
+                    _('Email không hợp lệ. Dùng định dạng email chuẩn (kể cả khi nhập tay hoặc import).')
+                )
+            dup = self.search(
+                [
                     ('id', '!=', record.id),
-                    ('email', '=ilike', record.email),
-                ], limit=1)
-                if dup:
-                    raise ValidationError('Email đã tồn tại. Vui lòng dùng email khác.')
+                    ('email', '=ilike', email_norm),
+                ],
+                limit=1,
+            )
+            if dup:
+                raise ValidationError(_('Email đã tồn tại. Vui lòng dùng email khác.'))
     phone = fields.Char(string='Số điện thoại')
     image_1920 = fields.Image(string='Ảnh đại diện', max_width=1920, max_height=1920)
     gender = fields.Selection(
@@ -209,6 +213,33 @@ class Student(models.Model):
                 user = self.env['res.users'].browse(vals['user_id'])
                 vals['name'] = user.name
         return super().create(vals_list)
+
+    def write(self, vals):
+        """Giảng viên không được sửa hồ sơ sinh viên; chỉ đổi trạng thái đăng ký trên khóa do họ phụ trách."""
+        if 'email' in vals and vals.get('email'):
+            email_norm = email_normalize(vals['email'])
+            if not email_norm:
+                raise ValidationError(
+                    _('Email không hợp lệ. Dùng định dạng email chuẩn (kể cả khi nhập tay hoặc import).')
+                )
+            vals = dict(vals, email=email_norm)
+        user = self.env.user
+        privileged = user.has_group('lms.group_lms_manager') or user.has_group('base.group_system')
+        if user.has_group('lms.group_lms_instructor') and not privileged:
+            keys = set(vals.keys())
+            allowed = {'current_course_registration_status'}
+            if keys - allowed:
+                raise AccessError(_('Giáo viên không được sửa thông tin hồ sơ sinh viên.'))
+            if 'current_course_registration_status' in vals:
+                course_id = self.env.context.get('course_id') or self.env.context.get('active_id')
+                if not course_id:
+                    raise AccessError(
+                        _('Chỉ được cập nhật trạng thái đăng ký khi mở từ danh sách học viên của khóa học.')
+                    )
+                course = self.env['lms.course'].browse(int(course_id))
+                if course.instructor_id.id != user.id:
+                    raise AccessError(_('Bạn chỉ quản lý đăng ký trên các khóa học do bạn phụ trách.'))
+        return super().write(vals)
 
     def _compute_current_course_registration_status(self):
         """Trạng thái đăng ký của học sinh theo course_id trong context."""

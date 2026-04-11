@@ -80,7 +80,11 @@ class Course(models.Model):
         string='Hiển thị tab học tập',
         compute='_compute_current_user_registration_state',
     )
-    
+    is_student_course_readonly = fields.Boolean(
+        string='Form khóa học chỉ đọc (học sinh)',
+        compute='_compute_is_student_course_readonly',
+    )
+
     # Trạng thái
     state = fields.Selection([
         ('draft', 'Nháp'),
@@ -89,7 +93,19 @@ class Course(models.Model):
     ], string='Trạng thái', default='draft', tracking=True)
     
     is_active = fields.Boolean(string='Đang hoạt động', default=True)
-    
+
+    @api.model
+    def default_get(self, fields_list):
+        """Giáo viên (không phải Admin LMS/Settings) tạo khóa mới: mặc định instructor là chính họ (cần cho ir.rule ghi)."""
+        res = super().default_get(fields_list)
+        if 'instructor_id' in fields_list and not res.get('instructor_id'):
+            user = self.env.user
+            if user.has_group('lms.group_lms_instructor') and not (
+                user.has_group('lms.group_lms_manager') or user.has_group('base.group_system')
+            ):
+                res['instructor_id'] = user.id
+        return res
+
     @api.constrains('duration_hours')
     def _check_duration_hours(self):
         """Kiểm tra thời lượng khóa học không được âm"""
@@ -183,7 +199,19 @@ class Course(models.Model):
                 ]
             )
             record.show_learning_content_tabs = bool(approved_or_learning)
-    
+
+    @api.depends()
+    def _compute_is_student_course_readonly(self):
+        """Chỉ tài khoản thuần học sinh (không phải GV/Admin) — không chỉnh sửa dữ liệu khóa học."""
+        user = self.env.user
+        readonly = user.has_group('lms.group_lms_user') and not (
+            user.has_group('lms.group_lms_instructor')
+            or user.has_group('lms.group_lms_manager')
+            or user.has_group('base.group_system')
+        )
+        for record in self:
+            record.is_student_course_readonly = readonly
+
     student_course_ids = fields.One2many('lms.student.course', 'course_id', string='Học viên đăng ký')
     
     def action_publish(self):
