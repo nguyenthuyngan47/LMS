@@ -13,6 +13,16 @@ _logger = logging.getLogger(__name__)
 
 class AuthController(http.Controller):
 
+    @http.route('/lms/dang-ky/giang-vien', type='http', auth='public')
+    def lms_register_instructor_landing(self, **kwargs):
+        """Trang đăng nhập: link «giảng viên» — mặc định sang /web/signup (cần module auth_signup)."""
+        return request.redirect('/web/signup?lms_register=lecturer', local=True)
+
+    @http.route('/lms/dang-ky/hoc-sinh', type='http', auth='public')
+    def lms_register_student_landing(self, **kwargs):
+        """Trang đăng nhập: link «học sinh» — mặc định sang /web/signup (cần module auth_signup)."""
+        return request.redirect('/web/signup?lms_register=student', local=True)
+
     @http.route('/lms/api/login', type='http', auth='public', methods=['POST', 'OPTIONS'], csrf=False)
     def login(self, **kwargs):
         """API endpoint để đăng nhập (public, không cần auth)"""

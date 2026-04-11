@@ -56,6 +56,8 @@ class Course(models.Model):
     max_student = fields.Integer(string='Số học viên tối đa')
     start_date = fields.Date(string='Ngày bắt đầu')
     end_date = fields.Date(string='Ngày kết thúc')
+    price = fields.Float(string='Chi phí', digits=(16, 2), tracking=True)
+    contact_payment = fields.Text(string='Liên hệ thanh toán', tracking=True)
     prerequisite_ids = fields.Many2many(
         'lms.course', 'course_prerequisite_rel', 'course_id', 'prerequisite_id',
         string='Khóa học tiên quyết'

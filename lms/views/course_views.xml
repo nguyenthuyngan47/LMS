@@ -134,6 +134,8 @@
                             <field name="name" readonly="is_student_course_readonly"/>
                             <field name="state" readonly="is_student_course_readonly"/>
                             <field name="is_active" readonly="is_student_course_readonly"/>
+                            <field name="price" string="Chi phí(VND)" readonly="is_student_course_readonly"/>
+                            <field name="contact_payment" readonly="is_student_course_readonly" placeholder="Số điện thoại, Zalo, Facebook, Email…"/>
                         </group>
                         <group>
                             <field name="category_id" readonly="is_student_course_readonly"/>

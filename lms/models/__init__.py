@@ -12,4 +12,5 @@ from . import roadmap
 from . import roadmap_wizard
 from . import ai_analysis
 from . import res_config_settings
+from . import res_users
 
