@@ -1,5 +1,9 @@
 # -*- coding: utf-8 -*-
 
+from .tools.env_loader import load_lms_dotenv
+
+load_lms_dotenv()
+
 from . import models
 from . import wizards
 from . import controllers

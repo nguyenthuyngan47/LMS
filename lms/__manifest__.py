@@ -9,7 +9,7 @@
     'author': 'LMS Team',
     'depends': ['base', 'base_setup', 'mail', 'portal', 'calendar', 'web', 'auth_signup'],
     'external_dependencies': {
-        'python': ['requests'],
+        'python': ['requests', 'python-dotenv'],
     },
     'pre_init_hook': 'pre_init_hook',
     'post_init_hook': 'post_init_hook',

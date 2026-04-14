@@ -17,7 +17,7 @@ def make_json_response(
         ("Access-Control-Allow-Methods", allow_methods),
         ("Access-Control-Allow-Headers", allow_headers),
     ]
-    return request.make_response(json.dumps(data), headers=headers)
+    return request.make_response(json.dumps(data), headers=headers, status=status_code)
 
 
 def handle_cors_preflight(

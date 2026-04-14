@@ -24,7 +24,10 @@ services:
       retries: 5
 
   odoo:
-    image: odoo:18.0
+    build:
+      context: .
+      dockerfile: Dockerfile.odoo
+    image: lms-odoo:18.0
     container_name: odoo_app_8069
     depends_on:
       db:
@@ -54,6 +57,9 @@ services:
       # Module tùy chỉnh
       - ./addons:/mnt/extra-addons
       - ./lms:/mnt/extra-addons/lms
+      # .env trên máy → đúng chỗ code tìm trong container (parent của thư mục lms = /mnt/extra-addons)
+      # env_file: .env chỉ inject biến vào process, KHÔNG tạo file → load_dotenv cần mount này
+      - ./.env:/mnt/extra-addons/.env:ro
       # Không dùng :ro ở data: mount lồng export/ bên dưới cần tạo mountpoint (Docker sẽ mkdir trên parent).
       - ./data:/mnt/extra-addons/data
       # CSV bootstrap (post_init): trùng đường mặc định /mnt/extra-addons/data/export
