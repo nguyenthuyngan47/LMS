@@ -41,7 +41,6 @@
         </field>
     </record>
 
-    <!-- Course Search -->
     <record id="view_lms_course_search" model="ir.ui.view">
         <field name="name">lms.course.search</field>
         <field name="model">lms.course</field>
@@ -50,19 +49,23 @@
                 <field name="name" string="Tên khóa học"/>
                 <field name="category_id"/>
                 <field name="level_id"/>
+                <field name="instructor_id"/>
                 <field name="tag_ids"/>
                 <filter string="Đã xuất bản" name="published" domain="[('state', '=', 'published')]"/>
                 <filter string="Nháp" name="draft" domain="[('state', '=', 'draft')]"/>
                 <filter string="Đang hoạt động" name="active" domain="[('is_active', '=', True)]"/>
                 <separator/>
-                <filter string="Data" name="category_data" domain="[('category_id.name', '=', 'Data')]"/>
-                <filter string="AI" name="category_ai" domain="[('category_id.name', '=', 'AI')]"/>
-                <filter string="Web" name="category_web" domain="[('category_id.name', '=', 'Web')]"/>
-                <filter string="Mobile" name="category_mobile" domain="[('category_id.name', '=', 'Mobile')]"/>
+                <filter
+                    string="Khóa học của tôi"
+                    name="my_courses"
+                    domain="[('instructor_id', '=', uid)]"
+                    groups="lms.group_lms_instructor"
+                />
                 <group expand="0" string="Nhóm theo">
                     <filter string="Danh mục" name="group_category" context="{'group_by': 'category_id'}"/>
                     <filter string="Cấp độ" name="group_level" context="{'group_by': 'level_id'}"/>
                     <filter string="Trạng thái" name="group_state" context="{'group_by': 'state'}"/>
+                    <filter string="Giảng viên" name="group_instructor" context="{'group_by': 'instructor_id'}"/>
                 </group>
             </search>
         </field>
@@ -73,15 +76,16 @@
         <field name="name">lms.course.list</field>
         <field name="model">lms.course</field>
         <field name="arch" type="xml">
-            <list string="Khóa học" decoration-info="state=='published'" decoration-muted="state=='archived'">
-                <field name="image_1920" widget="image" class="oe_avatar"/>
+            <list string="Courses" decoration-info="state=='published'" decoration-muted="state=='archived'">
                 <field name="name"/>
+                <field name="instructor_id"/>
                 <field name="category_id"/>
                 <field name="level_id"/>
-                <field name="instructor_id"/>
-                <field name="duration_hours"/>
-                <field name="enrolled_students_count"/>
                 <field name="state"/>
+                <field name="start_date"/>
+                <field name="end_date"/>
+                <field name="enrolled_students_count"/>
+                <field name="average_rating"/>
             </list>
         </field>
     </record>
@@ -92,42 +96,67 @@
         <field name="arch" type="xml">
             <form string="Khóa học">
                 <header>
-                    <button name="action_publish" string="Xuất bản" type="object" class="btn-primary" modifiers="{'invisible': [('state', '!=', 'draft')]}"/>
+                    <!-- <button name="action_publish" string="Xuất bản" type="object" class="btn-primary" modifiers="{'invisible': [('state', '!=', 'draft')]}"/> -->
+                    <button
+                        name="action_register_courses"
+                        string="Đăng ký khóa học"
+                        type="object"
+                        class="btn-primary"
+                        invisible="state != 'published' or not show_register_button"
+                    />
+                    <button
+                        name="action_cancel_course_registration"
+                        string="Hủy đăng ký"
+                        type="object"
+                        class="btn-secondary"
+                        invisible="state != 'published' or not show_cancel_button"
+                    />
                 </header>
                 <sheet>
+                    <field name="is_student_course_readonly" invisible="1"/>
+                    <field name="show_register_button" invisible="1"/>
+                    <field name="show_cancel_button" invisible="1"/>
+                    <field name="show_learning_content_tabs" invisible="1"/>
                     <div class="oe_button_box" name="button_box">
-                        <button name="%(action_lms_student)d" type="action" class="oe_stat_button" icon="fa-users" context="{'search_default_course_id': id}">
+                        <button
+                            name="%(action_lms_student_by_course)d"
+                            type="action"
+                            class="oe_stat_button"
+                            icon="fa-users"
+                            context="{'course_id': id, 'from_course_students': 1, 'form_view_initial_mode': 'edit'}"
+                        >
                             <field name="enrolled_students_count" widget="statinfo" string="Học viên"/>
                         </button>
                     </div>
                     <widget name="web_ribbon" title="Published" bg_color="text-bg-success" invisible="state != 'published'"/>
                     <group>
                         <group>
-                            <field name="image_1920" widget="image" class="oe_avatar"/>
-                            <field name="name"/>
-                            <field name="state"/>
-                            <field name="is_active"/>
+                            <field name="name" readonly="is_student_course_readonly"/>
+                            <field name="state" readonly="is_student_course_readonly"/>
+                            <field name="is_active" readonly="is_student_course_readonly"/>
+                            <field name="price" string="Chi phí(VND)" readonly="is_student_course_readonly"/>
+                            <field name="contact_payment" readonly="is_student_course_readonly" placeholder="Số điện thoại, Zalo, Facebook, Email…"/>
                         </group>
                         <group>
-                            <field name="category_id"/>
-                            <field name="level_id"/>
-                            <field name="instructor_id"/>
-                            <field name="duration_hours"/>
-                            <field name="total_lessons"/>
+                            <field name="category_id" readonly="is_student_course_readonly"/>
+                            <field name="level_id" readonly="is_student_course_readonly"/>
+                            <field name="instructor_id" readonly="is_student_course_readonly" domain="[('groups_id', 'in', [%(lms.group_lms_instructor)d]), ('share', '=', False), ('active', '=', True)]"/>
+                            <field name="duration_hours" readonly="is_student_course_readonly"/>
+                            <field name="total_lessons" readonly="is_student_course_readonly"/>
                         </group>
                     </group>
                     <notebook>
                         <page string="Mô tả" name="description">
-                            <field name="description"/>
+                            <field name="description" readonly="is_student_course_readonly"/>
                         </page>
                         <page string="Khóa học tiên quyết" name="prerequisites">
-                            <field name="prerequisite_ids" widget="many2many_tags"/>
+                            <field name="prerequisite_ids" widget="many2many_tags" readonly="is_student_course_readonly"/>
                         </page>
-                        <page string="Nhãn" name="tags">
-                            <field name="tag_ids" widget="many2many_tags" options="{'color_field': 'color'}"/>
+                        <page string="Nhãn" name="tags" invisible="not show_learning_content_tabs">
+                            <field name="tag_ids" widget="many2many_tags" options="{'color_field': 'color'}" readonly="is_student_course_readonly"/>
                         </page>
-                        <page string="Bài học" name="lessons">
-                            <field name="lesson_ids" nolabel="1">
+                        <page string="Bài học" name="lessons" invisible="not show_learning_content_tabs">
+                            <field name="lesson_ids" nolabel="1" readonly="is_student_course_readonly">
                                 <list>
                                     <field name="sequence" widget="handle"/>
                                     <field name="name"/>
@@ -137,18 +166,18 @@
                                     <sheet>
                                         <group>
                                             <group>
-                                                <field name="name"/>
-                                                <field name="sequence"/>
-                                                <field name="duration_minutes"/>
+                                                <field name="name" readonly="parent.is_student_course_readonly"/>
+                                                <field name="sequence" readonly="parent.is_student_course_readonly"/>
+                                                <field name="duration_minutes" readonly="parent.is_student_course_readonly"/>
                                             </group>
                                         </group>
                                         <group>
-                                            <field name="description"/>
+                                            <field name="description" readonly="parent.is_student_course_readonly"/>
                                         </group>
                                         <group string="Tài liệu">
-                                            <field name="video_url"/>
-                                            <field name="video_attachment" filename="video_filename"/>
-                                            <field name="pdf_attachment" filename="pdf_filename"/>
+                                            <field name="video_url" readonly="parent.is_student_course_readonly"/>
+                                            <field name="video_attachment" filename="video_filename" readonly="parent.is_student_course_readonly"/>
+                                            <field name="pdf_attachment" filename="pdf_filename" readonly="parent.is_student_course_readonly"/>
                                         </group>
                                     </sheet>
                                 </form>
@@ -196,9 +225,18 @@
     <record id="action_lms_course" model="ir.actions.act_window">
         <field name="name">Khóa học</field>
         <field name="res_model">lms.course</field>
-        <field name="view_mode">kanban,list,form</field>
+        <field name="view_mode">list,kanban,form</field>
         <field name="search_view_id" ref="view_lms_course_search"/>
         <field name="context">{'search_default_published': 1}</field>
+    </record>
+
+    <record id="action_lms_course_register" model="ir.actions.server">
+        <field name="name">Đăng ký khóa học</field>
+        <field name="model_id" ref="model_lms_course"/>
+        <field name="binding_model_id" ref="model_lms_course"/>
+        <field name="binding_view_types">list,form</field>
+        <field name="state">code</field>
+        <field name="code">action = records.action_register_courses()</field>
     </record>
 
     <record id="action_lms_course_category" model="ir.actions.act_window">

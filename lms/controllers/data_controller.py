@@ -78,7 +78,7 @@ class DataController(http.Controller):
                     'enrollment_id': enroll.id,
                     'enrollment_date': str(enroll.create_date) if enroll.create_date else '',
                     'completion_rate': enroll.completion_rate if hasattr(enroll, 'completion_rate') else 0,
-                    'status': enroll.status if hasattr(enroll, 'status') else 'enrolled',
+                    'status': enroll.status if hasattr(enroll, 'status') else 'pending',
                 })
 
             return make_json_response({'success': True, 'courses': courses}, **_CORS)
@@ -121,7 +121,7 @@ class DataController(http.Controller):
                     'course_name': enroll.course_id.name,
                     'completion_rate': enroll.completion_rate if hasattr(enroll, 'completion_rate') else 0,
                     'score': enroll.score if hasattr(enroll, 'score') else 0,
-                    'status': enroll.status if hasattr(enroll, 'status') else 'enrolled',
+                    'status': enroll.status if hasattr(enroll, 'status') else 'pending',
                     'last_activity': str(last_history.date) if last_history and last_history.date else '',
                     'completed_lessons': enroll.completed_lessons if hasattr(enroll, 'completed_lessons') else 0,
                     'total_lessons': enroll.course_id.total_lessons if hasattr(enroll.course_id, 'total_lessons') else 0,

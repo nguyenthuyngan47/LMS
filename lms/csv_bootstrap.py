@@ -217,7 +217,7 @@ def _ensure_many_to_many_enrollments(env, per_course: int = 5) -> None:
                     "student_id": sid,
                     "course_id": cid,
                     "enrollment_date": fields.Date.today(),
-                    "status": "enrolled",
+                    "status": "pending",
                 }
             )
     if to_create:
@@ -256,15 +256,15 @@ def _stabilize_student_levels(env) -> None:
     for idx, st in enumerate(students, start=1):
         if idx <= 150:
             level = "beginner"
-            status_cycle = ("enrolled", "in_progress")
+            status_cycle = ("pending", "learning")
             score_cycle = (False, False)
         elif idx <= 185:
             level = "intermediate"
-            status_cycle = ("completed", "in_progress")
+            status_cycle = ("completed", "learning")
             score_cycle = (6.6, False)
         else:
             level = "advanced"
-            status_cycle = ("completed", "in_progress")
+            status_cycle = ("completed", "learning")
             score_cycle = (8.6, False)
 
         if st.current_level != level or not st.manual_level_lock:
@@ -614,7 +614,7 @@ def import_lms_from_csv_directory(
             "enrollment_date": _norm_date(r.get("enrollment_date")),
             "start_date": _norm_date(r.get("start_date")),
             "completion_date": _norm_date(r.get("completion_date")),
-            "status": (r.get("status") or "enrolled").strip(),
+            "status": (r.get("status") or "pending").strip(),
             "final_score": _to_float(fs) if fs not in (None, "") else False,
         }
         if safe_upsert:

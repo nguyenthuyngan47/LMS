@@ -1,9 +1,14 @@
 # -*- coding: utf-8 -*-
+"""
+Mọi bản ghi lms.student mới (form, Import CSV, RPC) đều đi qua ORM ``create()`` —
+nếu không gán ``user_id``, hệ thống tự tạo ``res.users`` (login = email), tương tự ``lms.lecturer``.
+"""
 
-import re
+from odoo import _, api, fields, models
+from odoo.exceptions import AccessError, ValidationError
+from odoo.tools.mail import email_normalize
 
-from odoo import models, fields, api
-from odoo.exceptions import ValidationError
+_DEFAULT_STUDENT_AUTO_PASSWORD = "123456"
 
 
 class Student(models.Model):
@@ -16,20 +21,33 @@ class Student(models.Model):
     
     @api.constrains('email')
     def _check_email(self):
-        """Kiểm tra định dạng email"""
-        email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+        """Định dạng email theo chuẩn Odoo (odoo.tools.mail.email_normalize)."""
         for record in self:
-            if record.email and not re.match(email_pattern, record.email):
-                raise ValidationError('Email không hợp lệ. Vui lòng nhập đúng định dạng email.')
-            if record.email:
-                dup = self.search([
+            if not (record.email or '').strip():
+                continue
+            email_norm = email_normalize(record.email)
+            if not email_norm:
+                raise ValidationError(
+                    _('Email không hợp lệ. Dùng định dạng email chuẩn (kể cả khi nhập tay hoặc import).')
+                )
+            dup = self.search(
+                [
                     ('id', '!=', record.id),
-                    ('email', '=ilike', record.email),
-                ], limit=1)
-                if dup:
-                    raise ValidationError('Email đã tồn tại. Vui lòng dùng email khác.')
+                    ('email', '=ilike', email_norm),
+                ],
+                limit=1,
+            )
+            if dup:
+                raise ValidationError(_('Email đã tồn tại. Vui lòng dùng email khác.'))
     phone = fields.Char(string='Số điện thoại')
     image_1920 = fields.Image(string='Ảnh đại diện', max_width=1920, max_height=1920)
+    gender = fields.Selection(
+        [('male', 'Nam'), ('female', 'Nữ'), ('other', 'Khác')],
+        string='Giới tính',
+        tracking=True,
+    )
+    date_of_birth = fields.Date(string='Ngày sinh', tracking=True)
+    address = fields.Char(string='Địa chỉ', tracking=True)
     
     # Thông tin đầu vào
     current_level = fields.Selection([
@@ -56,8 +74,47 @@ class Student(models.Model):
     roadmap_ids = fields.One2many(
         'lms.roadmap', 'student_id', string='Roadmap đề xuất'
     )
-    user_id = fields.Many2one('res.users', string='User Account', ondelete='cascade', index=True, tracking=True)
-    
+    current_course_registration_status = fields.Selection(
+        [
+            ('pending', 'Chờ duyệt'),
+            ('approved', 'Đã duyệt'),
+            ('rejected', 'Từ chối'),
+            ('learning', 'Đang học'),
+            ('completed', 'Hoàn thành'),
+            ('cancelled', 'Đã hủy'),
+        ],
+        string='Trạng thái đăng ký (khóa hiện tại)',
+        compute='_compute_current_course_registration_status',
+        compute_sudo=True,
+        search='_search_current_course_registration_status',
+        inverse='_inverse_current_course_registration_status',
+    )
+    user_id = fields.Many2one(
+        'res.users',
+        string='Tài khoản',
+        required=False,
+        ondelete='cascade',
+        index=True,
+        tracking=True,
+        help='Để trống: mỗi lần tạo bản ghi (kể cả import CSV), hệ thống tự tạo res.users với login = email.',
+    )
+    username = fields.Char(
+        string='Tên đăng nhập',
+        related='user_id.login',
+        store=True,
+        readonly=True,
+    )
+    last_login = fields.Datetime(
+        string='Đăng nhập lần cuối',
+        related='user_id.login_date',
+        store=True,
+        readonly=True,
+    )
+    is_instructor_restricted = fields.Boolean(
+        string='Giới hạn chỉnh sửa cho giáo viên',
+        compute='_compute_is_instructor_restricted',
+    )
+
     # Thống kê
     total_courses = fields.Integer(string='Tổng số khóa học', compute='_compute_statistics', store=True)
     completed_courses = fields.Integer(string='Khóa học đã hoàn thành', compute='_compute_statistics', store=True)
@@ -85,7 +142,223 @@ class Student(models.Model):
     # Trạng thái
     is_active = fields.Boolean(string='Đang hoạt động', default=True, tracking=True)
     inactive_days = fields.Integer(string='Số ngày không hoạt động', compute='_compute_inactive_days', store=True, index=True)
-    
+
+    _sql_constraints = [
+        ('student_user_unique', 'unique(user_id)', 'Mỗi tài khoản chỉ gắn với một sinh viên.'),
+    ]
+
+    @api.model
+    def _needs_auto_student_user(self, vals):
+        """True khi chưa có user hợp lệ (form, CSV, API đều truyền vals qua create)."""
+        uid = vals.get('user_id')
+        if uid in (False, None, '', 0):
+            return True
+        if isinstance(uid, str) and not uid.strip():
+            return True
+        return False
+
+    @api.model
+    def _prepare_student_user_on_create(self, vals):
+        """Gán vals['user_id'] trước super().create — mọi insert ORM đều đi qua đây."""
+        if not self._needs_auto_student_user(vals):
+            return
+        display_name = (vals.get('name') or '').strip()
+        if not display_name:
+            raise ValidationError(
+                _('Thiếu tên sinh viên: bắt buộc để tạo hoặc gán tài khoản đăng nhập.')
+            )
+        email_norm = email_normalize(vals.get('email'))
+        if not email_norm:
+            raise ValidationError(
+                _('Email không hợp lệ hoặc trống. Dùng định dạng email chuẩn (kể cả khi import CSV).')
+            )
+        vals['email'] = email_norm
+        login = email_norm
+        Users = self.env['res.users'].sudo()
+        existing = Users.search([('login', '=', login)], limit=1)
+        if existing:
+            if self.sudo().search_count([('user_id', '=', existing.id)]):
+                raise ValidationError(
+                    _('Email/login đã được dùng cho sinh viên khác: %s') % login
+                )
+            vals['user_id'] = existing.id
+            return
+        student_group = self.env.ref('lms.group_lms_user', raise_if_not_found=False)
+        internal_group = self.env.ref('base.group_user')
+        group_ids = [internal_group.id]
+        if student_group:
+            group_ids.append(student_group.id)
+        company = self.env.company
+        user = Users.with_context(no_reset_password=True).create(
+            {
+                'name': display_name,
+                'login': login,
+                'email': email_norm,
+                'company_id': company.id,
+                'company_ids': [(6, 0, [company.id])],
+                'groups_id': [(6, 0, group_ids)],
+            }
+        )
+        user.write({'password': _DEFAULT_STUDENT_AUTO_PASSWORD})
+        phone = (vals.get('phone') or '').strip()
+        if phone:
+            user.partner_id.sudo().write({'phone': phone})
+        vals['user_id'] = user.id
+
+    @api.model_create_multi
+    def create(self, vals_list):
+        for vals in vals_list:
+            self._prepare_student_user_on_create(vals)
+            if vals.get('user_id') and not (vals.get('name') or '').strip():
+                user = self.env['res.users'].browse(vals['user_id'])
+                vals['name'] = user.name
+        return super().create(vals_list)
+
+    def write(self, vals):
+        """Giảng viên không được sửa hồ sơ sinh viên; chỉ đổi trạng thái đăng ký trên khóa do họ phụ trách."""
+        if 'email' in vals and vals.get('email'):
+            email_norm = email_normalize(vals['email'])
+            if not email_norm:
+                raise ValidationError(
+                    _('Email không hợp lệ. Dùng định dạng email chuẩn (kể cả khi nhập tay hoặc import).')
+                )
+            vals = dict(vals, email=email_norm)
+        user = self.env.user
+        privileged = user.has_group('lms.group_lms_manager') or user.has_group('base.group_system')
+        if user.has_group('lms.group_lms_instructor') and not privileged:
+            keys = set(vals.keys())
+            allowed = {'current_course_registration_status'}
+            if keys - allowed:
+                raise AccessError(_('Giáo viên không được sửa thông tin hồ sơ sinh viên.'))
+            if 'current_course_registration_status' in vals:
+                course_id = self.env.context.get('course_id') or self.env.context.get('active_id')
+                if not course_id:
+                    raise AccessError(
+                        _('Chỉ được cập nhật trạng thái đăng ký khi mở từ danh sách học viên của khóa học.')
+                    )
+                course = self.env['lms.course'].browse(int(course_id))
+                if course.instructor_id.id != user.id:
+                    raise AccessError(_('Bạn chỉ quản lý đăng ký trên các khóa học do bạn phụ trách.'))
+        return super().write(vals)
+
+    def _compute_current_course_registration_status(self):
+        """Trạng thái đăng ký của học sinh theo course_id trong context."""
+        course_id = self.env.context.get('course_id') or self.env.context.get('active_id')
+        if not course_id:
+            for rec in self:
+                rec.current_course_registration_status = False
+            return
+        enrollments = self.env['lms.student.course'].sudo().search(
+            [('student_id', 'in', self.ids), ('course_id', '=', course_id)]
+        )
+        by_student = {e.student_id.id: e.status for e in enrollments}
+        for rec in self:
+            rec.current_course_registration_status = by_student.get(rec.id) or False
+
+    def _search_current_course_registration_status(self, operator, value):
+        """
+        Cho phép filter/search theo trạng thái đăng ký của khóa học hiện tại
+        (course_id lấy từ context của action mở từ nút "Học viên").
+        """
+        course_id = self.env.context.get('course_id') or self.env.context.get('active_id')
+        if not course_id:
+            return [('id', '=', 0)]
+        enrollments = self.env['lms.student.course'].sudo().search(
+            [('course_id', '=', course_id)]
+        )
+        student_ids = enrollments.filtered(lambda e: e.status == value).mapped('student_id').ids
+        if operator in ('=', '=='):
+            return [('id', 'in', student_ids or [0])]
+        if operator in ('!=', '<>'):
+            return [('id', 'not in', student_ids)]
+        # Fallback an toàn cho các operator khác không dùng trong filter hiện tại.
+        return [('id', '=', 0)]
+
+    def _inverse_current_course_registration_status(self):
+        """Cho phép đổi trạng thái trực tiếp trên form sinh viên theo course trong context."""
+        for rec in self:
+            if not rec.current_course_registration_status:
+                continue
+            self._set_current_course_status(
+                rec.current_course_registration_status,
+                students=rec,
+                notify=False,
+            )
+
+    def _set_current_course_status(self, new_status, students=None, notify=True):
+        """Đổi trạng thái đăng ký theo khóa học hiện tại cho nhiều sinh viên."""
+        students = students or self
+        course_id = self.env.context.get('course_id') or self.env.context.get('active_id')
+        if not course_id:
+            if not notify:
+                return False
+            return {
+                'type': 'ir.actions.client',
+                'tag': 'display_notification',
+                'params': {
+                    'title': _('Cập nhật trạng thái'),
+                    'message': _('Chỉ dùng được khi mở từ màn hình Học viên của khóa học.'),
+                    'type': 'warning',
+                    'sticky': False,
+                },
+            }
+        enrollments = self.env['lms.student.course'].sudo().search(
+            [('student_id', 'in', students.ids), ('course_id', '=', course_id)]
+        )
+        updated = enrollments.filtered(lambda e: e.status != new_status)
+        if updated:
+            updated.write({'status': new_status})
+        if not notify:
+            return True
+        return {
+            'type': 'ir.actions.client',
+            'tag': 'display_notification',
+            'params': {
+                'title': _('Cập nhật trạng thái'),
+                'message': _(
+                    'Đã cập nhật trạng thái "%s" cho %s học sinh.'
+                ) % (
+                    dict(self._fields['current_course_registration_status'].selection).get(new_status, new_status),
+                    len(updated),
+                ),
+                'type': 'success',
+                'sticky': False,
+                'next': {'type': 'ir.actions.client', 'tag': 'reload'},
+            },
+        }
+
+    def _compute_is_instructor_restricted(self):
+        """
+        Giáo viên chỉ được chỉnh trạng thái đăng ký (trong flow theo khóa học),
+        không được sửa các thông tin khác của hồ sơ sinh viên.
+        """
+        user = self.env.user
+        restricted = (
+            user.has_group('lms.group_lms_instructor')
+            and not user.has_group('lms.group_lms_manager')
+            and not user.has_group('base.group_system')
+        )
+        for rec in self:
+            rec.is_instructor_restricted = restricted
+
+    def action_set_course_status_pending(self):
+        return self._set_current_course_status('pending')
+
+    def action_set_course_status_approved(self):
+        return self._set_current_course_status('approved')
+
+    def action_set_course_status_rejected(self):
+        return self._set_current_course_status('rejected')
+
+    def action_set_course_status_learning(self):
+        return self._set_current_course_status('learning')
+
+    def action_set_course_status_completed(self):
+        return self._set_current_course_status('completed')
+
+    def action_set_course_status_cancelled(self):
+        return self._set_current_course_status('cancelled')
+
     @api.depends(
         'learning_history_ids',
         'learning_history_ids.date',
@@ -236,17 +509,17 @@ class StudentCourse(models.Model):
     completion_date = fields.Date(string='Ngày hoàn thành')
     
     status = fields.Selection([
-        ('enrolled', 'Đã đăng ký'),
-        ('in_progress', 'Đang học'),
-        ('completed', 'Đã hoàn thành'),
-        ('dropped', 'Bỏ cuộc'),
-    ], string='Trạng thái', default='enrolled', tracking=True)
-    
-    analytics_count = fields.Integer(
-        string='Analytics Count',
-        default=1,
-        help='Field kỹ thuật dùng để đếm record trong pivot/graph (SUM).',
-    )
+        ('pending', 'Chờ duyệt'),
+        ('approved', 'Đã duyệt'),
+        ('rejected', 'Từ chối'),
+        ('learning', 'Đang học'),
+        ('completed', 'Hoàn thành'),
+        ('cancelled', 'Đã hủy'),
+    ], string='Trạng thái', default='pending', tracking=True)
+
+    _sql_constraints = [
+        ('student_course_unique', 'unique(student_id, course_id)', 'Student đã đăng ký khóa học này rồi!'),
+    ]
 
     progress = fields.Float(string='Tiến độ (%)', compute='_compute_progress', store=True, digits=(16, 2))
     final_score = fields.Float(string='Điểm cuối cùng', digits=(16, 2))
@@ -305,7 +578,14 @@ class StudentCourse(models.Model):
         merged = 0
         History = self.env['lms.learning.history'].sudo()
         skip_ctx = {'skip_lms_statistics_refresh': True, 'skip_lms_student_course_relink': True}
-        status_rank = {'completed': 4, 'in_progress': 3, 'enrolled': 2, 'dropped': 1}
+        status_rank = {
+            'completed': 6,
+            'learning': 5,
+            'approved': 4,
+            'pending': 3,
+            'rejected': 2,
+            'cancelled': 1,
+        }
 
         def pick_status(a, b):
             return a if status_rank.get(a or '', 0) >= status_rank.get(b or '', 0) else b

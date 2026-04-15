@@ -5,15 +5,15 @@
         <field name="model">lms.lecturer</field>
         <field name="arch" type="xml">
             <list>
-                <field name="lecturer_id"/>
+                <field name="id"/>
                 <field name="full_name"/>
-                <field name="username"/>
                 <field name="email"/>
+                <field name="phone_number"/>
                 <field name="department"/>
-                <field name="specialization"/>
-                <field name="status"/>
-                <field name="total_courses"/>
-                <field name="total_students"/>
+                <field name="faculty"/>
+                <field name="academic_degree"/>
+                <field name="years_of_experience"/>
+                <field name="status" string="Trạng thái"/>
             </list>
         </field>
     </record>
@@ -27,7 +27,6 @@
                     <group>
                         <group>
                             <field name="lecturer_id" readonly="1"/>
-                            <field name="user_id"/>
                             <field name="full_name"/>
                             <field name="role" readonly="1"/>
                             <field name="status" readonly="1"/>
@@ -47,7 +46,6 @@
                                 <group>
                                     <field name="gender"/>
                                     <field name="date_of_birth"/>
-                                    <field name="avatar_url"/>
                                     <field name="address"/>
                                 </group>
                                 <group>
@@ -71,7 +69,7 @@
                                 </group>
                             </group>
                         </page>
-                        <page string="Nghiệp vụ LMS">
+                        <!-- <page string="Nghiệp vụ LMS">
                             <group>
                                 <field name="course_assigned">
                                     <list>
@@ -102,7 +100,7 @@
                                 <field name="created_at" readonly="1"/>
                                 <field name="updated_at" readonly="1"/>
                             </group>
-                        </page>
+                        </page> -->
                     </notebook>
                 </sheet>
             </form>

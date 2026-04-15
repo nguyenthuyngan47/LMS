@@ -13,10 +13,10 @@
                 <field name="course_id"/>
                 <field name="status"/>
                 <field name="enrollment_date"/>
-                <filter string="Đã hoàn thành" name="status_completed" domain="[('status', '=', 'completed')]"/>
-                <filter string="Đang học" name="status_in_progress" domain="[('status', '=', 'in_progress')]"/>
-                <filter string="Đã đăng ký" name="status_enrolled" domain="[('status', '=', 'enrolled')]"/>
-                <filter string="Bỏ cuộc" name="status_dropped" domain="[('status', '=', 'dropped')]"/>
+                <filter string="Hoàn thành" name="status_completed" domain="[('status', '=', 'completed')]"/>
+                <filter string="Đang học" name="status_learning" domain="[('status', '=', 'learning')]"/>
+                <filter string="Đã duyệt" name="status_approved" domain="[('status', '=', 'approved')]"/>
+                <filter string="Chờ duyệt" name="status_pending" domain="[('status', '=', 'pending')]"/>
                 <group expand="0" string="Nhóm theo">
                     <filter string="Khóa học" name="group_course" context="{'group_by': 'course_id'}"/>
                     <filter string="Trạng thái" name="group_status" context="{'group_by': 'status'}"/>
@@ -50,7 +50,7 @@
                 <field name="status" type="col"/>
                 <field name="progress" type="measure"/>
                 <field name="final_score" type="measure"/>
-                <field name="analytics_count" type="measure" string="Số lượt đăng ký"/>
+                <field name="id" type="measure" string="Số lượt đăng ký"/>
             </pivot>
         </field>
     </record>
@@ -61,7 +61,7 @@
         <field name="arch" type="xml">
             <graph string="Graph - Đăng ký học" type="bar">
                 <field name="course_id" type="row"/>
-                <field name="analytics_count" type="measure" string="Số lượt đăng ký"/>
+                <field name="id" type="measure" string="Số lượt đăng ký"/>
                 <field name="progress" type="measure"/>
                 <field name="final_score" type="measure"/>
             </graph>

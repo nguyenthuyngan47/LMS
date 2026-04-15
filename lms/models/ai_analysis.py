@@ -103,7 +103,7 @@ class AIAnalysis(models.Model):
         
         # Chuẩn bị dữ liệu cho AI
         completed_courses = student.enrolled_courses_ids.filtered(
-            lambda x: x.status in ['completed', 'in_progress']
+            lambda x: x.status in ['completed', 'learning']
         ).mapped('course_id')
         
         completed_course_names = ', '.join(completed_courses.mapped('name')) if completed_courses else 'Chưa có'
@@ -201,7 +201,7 @@ Chỉ trả về JSON, không có text thêm.
         
         # Lấy các khóa học đã học
         completed_courses = student.enrolled_courses_ids.filtered(
-            lambda x: x.status in ['completed', 'in_progress']
+            lambda x: x.status in ['completed', 'learning']
         ).mapped('course_id')
         
         if not completed_courses:

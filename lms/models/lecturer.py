@@ -1,6 +1,15 @@
 # -*- coding: utf-8 -*-
+"""
+Mọi bản ghi lms.lecturer mới (form, Import CSV, RPC, code) đều đi qua ORM ``create()`` —
+logic tự tạo ``res.users`` gắn ở đây tương đương “trigger” cấp ứng dụng (không dùng SQL trigger).
+"""
 
-from odoo import api, fields, models
+from odoo import _, api, fields, models
+from odoo.exceptions import ValidationError
+from odoo.tools.mail import email_normalize
+
+# Mật khẩu ban đầu cho user mới tạo tự động (Odoo mã hóa qua write ``password``).
+_DEFAULT_LECTURER_AUTO_PASSWORD = "123456"
 
 
 class LmsLecturer(models.Model):
@@ -9,26 +18,33 @@ class LmsLecturer(models.Model):
     _order = "full_name, id"
 
     lecturer_id = fields.Char(string="Lecturer ID", required=True, copy=False, default="New")
-    user_id = fields.Many2one("res.users", string="Tài khoản", required=True, ondelete="cascade", index=True)
+    user_id = fields.Many2one(
+        "res.users",
+        string="Tài khoản",
+        required=False,
+        ondelete="cascade",
+        index=True,
+        help="Để trống: mỗi lần tạo bản ghi (kể cả import CSV), hệ thống tự tạo res.users với login = email.",
+    )
 
     username = fields.Char(string="Username", related="user_id.login", store=True, readonly=True)
     password_hash = fields.Char(string="Password Hash", compute="_compute_password_hash", readonly=True)
-    email = fields.Char(string="Email", related="user_id.partner_id.email", store=True, readonly=False)
-    phone_number = fields.Char(string="Số điện thoại", related="user_id.partner_id.phone", store=True, readonly=False)
+    email = fields.Char(string="Email", store=True, readonly=False)
+    phone_number = fields.Char(string="Số điện thoại", store=True, readonly=False)
     role = fields.Selection(
         [("lecturer", "Lecturer")], string="Role", default="lecturer", required=True, readonly=True
     )
     status = fields.Selection(
         [("active", "Active"), ("inactive", "Inactive")], compute="_compute_status", store=True
     )
-    active = fields.Boolean(string="Active", related="user_id.active", store=True, readonly=False)
+    active = fields.Boolean(string="Active", default=True, store=True, readonly=False)
     created_at = fields.Datetime(string="Created At", related="create_date", store=False, readonly=True)
     updated_at = fields.Datetime(string="Updated At", related="write_date", store=False, readonly=True)
     last_login = fields.Datetime(string="Last Login", related="user_id.login_date", store=True, readonly=True)
 
     full_name = fields.Char(string="Họ và tên", required=True)
     gender = fields.Selection(
-        [("male", "Male"), ("female", "Female"), ("other", "Other")], string="Giới tính"
+        [("male", "Nam"), ("female", "Nữ"), ("other", "Khác")], string="Giới tính"
     )
     date_of_birth = fields.Date(string="Ngày sinh")
     avatar_url = fields.Char(string="Avatar URL")
@@ -84,8 +100,63 @@ class LmsLecturer(models.Model):
 
     _sql_constraints = [
         ("lecturer_user_unique", "unique(user_id)", "Mỗi tài khoản chỉ gắn với một giảng viên."),
-        ("lecturer_code_unique", "unique(lecturer_id)", "Lecturer ID phải là duy nhất."),
     ]
+
+    @api.model
+    def _needs_auto_lecturer_user(self, vals):
+        """True khi chưa có user hợp lệ (form, CSV, API đều truyền vals qua create)."""
+        uid = vals.get("user_id")
+        if uid in (False, None, "", 0):
+            return True
+        if isinstance(uid, str) and not uid.strip():
+            return True
+        return False
+
+    @api.model
+    def _prepare_lecturer_user_on_create(self, vals):
+        """
+        Gán vals['user_id'] trước super().create — chạy cho mọi insert ORM (thủ công / import / RPC).
+        """
+        if not self._needs_auto_lecturer_user(vals):
+            return
+        full_name = (vals.get("full_name") or "").strip()
+        if not full_name:
+            raise ValidationError(_("Thiếu họ và tên: bắt buộc để tạo hoặc gán tài khoản đăng nhập."))
+        email_norm = email_normalize(vals.get("email"))
+        if not email_norm:
+            raise ValidationError(
+                _("Email không hợp lệ hoặc trống. Dùng định dạng email chuẩn (kể cả khi import CSV).")
+            )
+        vals["email"] = email_norm
+        login = email_norm
+        Users = self.env["res.users"].sudo()
+        existing = Users.search([("login", "=", login)], limit=1)
+        if existing:
+            if self.sudo().search_count([("user_id", "=", existing.id)]):
+                raise ValidationError(_("Email/login đã được dùng cho giảng viên khác: %s") % login)
+            vals["user_id"] = existing.id
+            return
+        instructor_group = self.env.ref("lms.group_lms_instructor", raise_if_not_found=False)
+        internal_group = self.env.ref("base.group_user")
+        group_ids = [internal_group.id]
+        if instructor_group:
+            group_ids.append(instructor_group.id)
+        company = self.env.company
+        user = Users.with_context(no_reset_password=True).create(
+            {
+                "name": full_name,
+                "login": login,
+                "email": email_norm,
+                "company_id": company.id,
+                "company_ids": [(6, 0, [company.id])],
+                "groups_id": [(6, 0, group_ids)],
+            }
+        )
+        user.write({"password": _DEFAULT_LECTURER_AUTO_PASSWORD})
+        phone = (vals.get("phone_number") or "").strip()
+        if phone:
+            user.partner_id.sudo().write({"phone": phone})
+        vals["user_id"] = user.id
 
     @api.model_create_multi
     def create(self, vals_list):
@@ -93,6 +164,9 @@ class LmsLecturer(models.Model):
             if vals.get("lecturer_id", "New") == "New":
                 vals["lecturer_id"] = self.env["ir.sequence"].next_by_code("lms.lecturer") or "New"
             vals.setdefault("role", "lecturer")
+            # Tránh NULL ở cột active khi tạo từ luồng tự động / import.
+            vals.setdefault("active", True)
+            self._prepare_lecturer_user_on_create(vals)
             if vals.get("user_id") and not vals.get("full_name"):
                 user = self.env["res.users"].browse(vals["user_id"])
                 vals["full_name"] = user.name
