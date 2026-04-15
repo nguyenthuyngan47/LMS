@@ -37,7 +37,7 @@ class LmsLecturer(models.Model):
     status = fields.Selection(
         [("active", "Active"), ("inactive", "Inactive")], compute="_compute_status", store=True
     )
-    active = fields.Boolean(string="Active", store=True, readonly=False)
+    active = fields.Boolean(string="Active", default=True, store=True, readonly=False)
     created_at = fields.Datetime(string="Created At", related="create_date", store=False, readonly=True)
     updated_at = fields.Datetime(string="Updated At", related="write_date", store=False, readonly=True)
     last_login = fields.Datetime(string="Last Login", related="user_id.login_date", store=True, readonly=True)
@@ -164,6 +164,8 @@ class LmsLecturer(models.Model):
             if vals.get("lecturer_id", "New") == "New":
                 vals["lecturer_id"] = self.env["ir.sequence"].next_by_code("lms.lecturer") or "New"
             vals.setdefault("role", "lecturer")
+            # Tránh NULL ở cột active khi tạo từ luồng tự động / import.
+            vals.setdefault("active", True)
             self._prepare_lecturer_user_on_create(vals)
             if vals.get("user_id") and not vals.get("full_name"):
                 user = self.env["res.users"].browse(vals["user_id"])
