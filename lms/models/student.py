@@ -5,7 +5,7 @@ nếu không gán ``user_id``, hệ thống tự tạo ``res.users`` (login = em
 """
 
 from odoo import _, api, fields, models
-from odoo.exceptions import AccessError, ValidationError
+from odoo.exceptions import ValidationError
 from odoo.tools.mail import email_normalize
 
 _DEFAULT_STUDENT_AUTO_PASSWORD = "123456"
@@ -215,7 +215,7 @@ class Student(models.Model):
         return super().create(vals_list)
 
     def write(self, vals):
-        """Giảng viên không được sửa hồ sơ sinh viên; chỉ đổi trạng thái đăng ký trên khóa do họ phụ trách."""
+        """Chuẩn hóa email nếu có; quyền chỉnh sửa được kiểm soát chủ yếu ở UI/rule."""
         if 'email' in vals and vals.get('email'):
             email_norm = email_normalize(vals['email'])
             if not email_norm:
@@ -223,22 +223,6 @@ class Student(models.Model):
                     _('Email không hợp lệ. Dùng định dạng email chuẩn (kể cả khi nhập tay hoặc import).')
                 )
             vals = dict(vals, email=email_norm)
-        user = self.env.user
-        privileged = user.has_group('lms.group_lms_manager') or user.has_group('base.group_system')
-        if user.has_group('lms.group_lms_instructor') and not privileged:
-            keys = set(vals.keys())
-            allowed = {'current_course_registration_status'}
-            if keys - allowed:
-                raise AccessError(_('Giáo viên không được sửa thông tin hồ sơ sinh viên.'))
-            if 'current_course_registration_status' in vals:
-                course_id = self.env.context.get('course_id') or self.env.context.get('active_id')
-                if not course_id:
-                    raise AccessError(
-                        _('Chỉ được cập nhật trạng thái đăng ký khi mở từ danh sách học viên của khóa học.')
-                    )
-                course = self.env['lms.course'].browse(int(course_id))
-                if course.instructor_id.id != user.id:
-                    raise AccessError(_('Bạn chỉ quản lý đăng ký trên các khóa học do bạn phụ trách.'))
         return super().write(vals)
 
     def _compute_current_course_registration_status(self):
