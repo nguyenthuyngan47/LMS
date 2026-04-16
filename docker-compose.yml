@@ -60,6 +60,8 @@ services:
       # .env trên máy → đúng chỗ code tìm trong container (parent của thư mục lms = /mnt/extra-addons)
       # env_file: .env chỉ inject biến vào process, KHÔNG tạo file → load_dotenv cần mount này
       - ./.env:/mnt/extra-addons/.env:ro
+      # Google service account key (read-only) cho Google Calendar API
+      - ./lmsodoo-32c3fbb07398.json:/run/secrets/google-service-account.json:ro
       # Không dùng :ro ở data: mount lồng export/ bên dưới cần tạo mountpoint (Docker sẽ mkdir trên parent).
       - ./data:/mnt/extra-addons/data
       # CSV bootstrap (post_init): trùng đường mặc định /mnt/extra-addons/data/export

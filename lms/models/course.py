@@ -1,6 +1,9 @@
 # -*- coding: utf-8 -*-
 
+from dateutil.relativedelta import relativedelta
+
 from odoo import _, api, fields, models
+from odoo.exceptions import ValidationError
 
 
 class CourseCategory(models.Model):
@@ -56,7 +59,8 @@ class Course(models.Model):
     max_student = fields.Integer(string='Số học viên tối đa')
     start_date = fields.Date(string='Ngày bắt đầu')
     end_date = fields.Date(string='Ngày kết thúc')
-    price = fields.Float(string='Chi phí', digits=(16, 2), tracking=True)
+    # VND không dùng phần thập phân -> lưu số nguyên để tránh hiển thị 100,000.00
+    price = fields.Integer(string='Chi phí (VND)', default=0, tracking=True)
     contact_payment = fields.Text(string='Liên hệ giáo viên', tracking=True)
     prerequisite_ids = fields.Many2many(
         'lms.course', 'course_prerequisite_rel', 'course_id', 'prerequisite_id',
@@ -108,12 +112,43 @@ class Course(models.Model):
                 res['instructor_id'] = user.id
         return res
 
+    @api.model
+    def _sanitize_price_in_vals(self, vals):
+        """Chuẩn hóa price từ form/import/API: rỗng -> 0, kiểu khác -> int."""
+        if 'price' not in vals:
+            vals['price'] = 0
+            return vals
+        raw = vals.get('price')
+        if raw in (None, False, ''):
+            vals['price'] = 0
+            return vals
+        try:
+            vals['price'] = int(raw)
+        except (TypeError, ValueError) as e:
+            raise ValidationError('Chi phí khóa học phải là số nguyên (VND).') from e
+        return vals
+
+    @api.model_create_multi
+    def create(self, vals_list):
+        vals_list = [self._sanitize_price_in_vals(dict(vals)) for vals in vals_list]
+        return super().create(vals_list)
+
+    def write(self, vals):
+        vals = self._sanitize_price_in_vals(dict(vals)) if 'price' in vals else vals
+        return super().write(vals)
+
     @api.constrains('duration_hours')
     def _check_duration_hours(self):
         """Kiểm tra thời lượng khóa học không được âm"""
         for record in self:
             if record.duration_hours and record.duration_hours < 0:
                 raise ValueError('Thời lượng khóa học không được âm')
+
+    @api.constrains('price')
+    def _check_price_non_negative(self):
+        for record in self:
+            if record.price is not None and record.price < 0:
+                raise ValueError('Chi phí khóa học không được âm')
     
     @api.constrains('prerequisite_ids')
     def _check_prerequisite_cycle(self):
@@ -336,6 +371,10 @@ class Lesson(models.Model):
     _description = 'Bài học'
     _order = 'sequence, name'
 
+    @api.model
+    def _default_end_datetime(self):
+        return fields.Datetime.now() + relativedelta(hours=1)
+
     name = fields.Char(string='Tên bài học', required=True)
     sequence = fields.Integer(string='Thứ tự', default=10, required=True)
     description = fields.Html(string='Mô tả')
@@ -350,4 +389,53 @@ class Lesson(models.Model):
 
     # Thời lượng
     duration_minutes = fields.Integer(string='Thời lượng (phút)')
+    start_datetime = fields.Datetime(string='Thời gian bắt đầu', required=True, default=fields.Datetime.now)
+    end_datetime = fields.Datetime(string='Thời gian kết thúc', required=True, default=_default_end_datetime)
+    meeting_url = fields.Char(string='Link Google Meet')
+    calendar_event_id = fields.Many2one(
+        'calendar.event',
+        string='Sự kiện lịch Odoo',
+        ondelete='set null',
+        copy=False,
+    )
+    state = fields.Selection(
+        [
+            ('draft', 'Draft'),
+            ('scheduled', 'Scheduled'),
+            ('done', 'Done'),
+            ('cancelled', 'Cancelled'),
+        ],
+        string='Trạng thái',
+        default='draft',
+        required=True,
+        copy=False,
+    )
+    is_published = fields.Boolean(string='Hiển thị cho học sinh', default=False, copy=False)
+    calendar_sync_status = fields.Selection(
+        [
+            ('not_synced', 'Not Synced'),
+            ('synced', 'Synced'),
+            ('error', 'Error'),
+        ],
+        string='Calendar Sync Status',
+        default='not_synced',
+        copy=False,
+    )
+    calendar_sync_error = fields.Text(string='Calendar Sync Error', copy=False)
+
+    @api.model_create_multi
+    def create(self, vals_list):
+        Course = self.env['lms.course'].sudo()
+        ctx_course_id = self.env.context.get('default_course_id')
+        for vals in vals_list:
+            # Tạo inline từ one2many thường truyền course_id qua context default_course_id.
+            course_id = vals.get('course_id') or ctx_course_id
+            if not course_id:
+                continue
+            course = Course.browse(int(course_id))
+            if course.exists() and course.state != 'published':
+                raise ValidationError(
+                    _('Chỉ có thể tạo bài học khi khóa học đã ở trạng thái "Đã xuất bản".')
+                )
+        return super().create(vals_list)
 
