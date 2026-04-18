@@ -2,10 +2,29 @@
 """Dựng payload và đồng bộ Google Calendar cho lms.lesson, tách khỏi model."""
 
 import logging
+from datetime import datetime, timezone
 
 from . import google_calendar_client
 
 _logger = logging.getLogger(__name__)
+
+
+def _odoo_datetime_to_google_rfc3339(dt):
+    """
+    Odoo ``fields.Datetime`` là UTC (naive). Google cần RFC3339 có offset.
+
+    Nếu gửi ``2026-04-18T08:09:00`` không offset + ``timeZone=Asia/Ho_Chi_Minh``,
+    Google hiểu là 08:09 *tại VN*, không phải 08:09 UTC → lệch múi giờ (vd. 15:09 Odoo → 8:09 Calendar).
+    """
+    if not dt:
+        return None
+    if not isinstance(dt, datetime):
+        return None
+    if dt.tzinfo is None:
+        dt_utc = dt.replace(tzinfo=timezone.utc)
+    else:
+        dt_utc = dt.astimezone(timezone.utc)
+    return dt_utc.isoformat(timespec='seconds')
 
 
 def _unique_attendees(items, max_attendees):
@@ -51,20 +70,20 @@ def build_event_payload(lesson):
     if config['include_meeting_url_in_description'] and lesson.meeting_url:
         description_parts.append(f"Link buổi học: {lesson.meeting_url}")
 
-    tz = config['timezone']
-    start_dt = lesson.start_datetime.isoformat() if lesson.start_datetime else None
-    end_dt = lesson.end_datetime.isoformat() if lesson.end_datetime else None
+    start_dt = _odoo_datetime_to_google_rfc3339(lesson.start_datetime)
+    end_dt = _odoo_datetime_to_google_rfc3339(lesson.end_datetime)
     attendees = _unique_attendees(attendees_raw, config['max_attendees'])
     payload = {
         'summary': f"[LMS] {course.name} - {lesson.name}",
         'description': '\n\n'.join(p for p in description_parts if p),
         'start': {
             'dateTime': start_dt,
-            'timeZone': tz,
+            # Một thời điểm tuyệt đối; Calendar web hiển thị theo TZ người xem.
+            'timeZone': 'UTC',
         },
         'end': {
             'dateTime': end_dt,
-            'timeZone': tz,
+            'timeZone': 'UTC',
         },
     }
     if attendees:
