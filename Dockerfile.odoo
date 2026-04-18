@@ -1,10 +1,14 @@
-# Image Odoo 18 + dependency Python cho module LMS (python-dotenv).
-# Build: docker compose build odoo
 FROM odoo:18.0
 
 USER root
 
-# Python trong image Odoo/Debian thường bật PEP 668 → cần --break-system-packages
-RUN pip3 install --no-cache-dir --break-system-packages python-dotenv
+# KHÔNG upgrade pip nữa
+# Cài luôn dependencies
+RUN pip3 install --no-cache-dir --break-system-packages \
+    python-dotenv \
+    google-auth \
+    google-auth-oauthlib \
+    google-auth-httplib2 \
+    requests
 
 USER odoo

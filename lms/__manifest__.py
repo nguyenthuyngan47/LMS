@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 {
     'name': 'Learning Management System (LMS)',
-    'version': '18.0.1.0.13',
+    'version': '18.0.1.0.15',
     'category': 'Education',
     'summary': 'Hệ thống quản lý học tập với AI đề xuất khóa học',
     # Giữ description dạng plain text để tránh docutils/RST parse lỗi.
@@ -9,7 +9,7 @@
     'author': 'LMS Team',
     'depends': ['base', 'base_setup', 'mail', 'portal', 'calendar', 'web', 'auth_signup'],
     'external_dependencies': {
-        'python': ['requests', 'python-dotenv'],
+        'python': ['requests', 'python-dotenv', 'google-auth'],
     },
     'pre_init_hook': 'pre_init_hook',
     'post_init_hook': 'post_init_hook',

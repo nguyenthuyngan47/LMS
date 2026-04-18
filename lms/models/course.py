@@ -5,6 +5,8 @@ from dateutil.relativedelta import relativedelta
 from odoo import _, api, fields, models
 from odoo.exceptions import ValidationError
 
+from ..services import google_calendar_sync
+
 
 class CourseCategory(models.Model):
     _name = 'lms.course.category'
@@ -422,6 +424,46 @@ class Lesson(models.Model):
         copy=False,
     )
     calendar_sync_error = fields.Text(string='Calendar Sync Error', copy=False)
+    google_event_id = fields.Char(string='Google Event ID', copy=False, readonly=True)
+    google_event_html_link = fields.Char(string='Google Event Link', copy=False, readonly=True)
+
+    def _google_calendar_apply_updates(self, vals):
+        return self.with_context(skip_google_calendar_sync=True).write(vals)
+
+    def _google_calendar_sync_if_needed(self):
+        for lesson in self:
+            if lesson.state != 'scheduled':
+                continue
+            try:
+                vals = google_calendar_sync.sync_lesson_event(lesson)
+            except Exception as e:  # noqa: BLE001
+                lesson._google_calendar_apply_updates({
+                    'calendar_sync_status': 'error',
+                    'calendar_sync_error': str(e),
+                })
+                continue
+            lesson._google_calendar_apply_updates(vals)
+
+    def _google_calendar_unsync(self, *, clear_meeting_url=False):
+        for lesson in self:
+            if lesson.google_event_id:
+                try:
+                    google_calendar_sync.delete_lesson_event(lesson)
+                except Exception as e:  # noqa: BLE001
+                    lesson._google_calendar_apply_updates({
+                        'calendar_sync_status': 'error',
+                        'calendar_sync_error': str(e),
+                    })
+                    continue
+            vals = {
+                'google_event_id': False,
+                'google_event_html_link': False,
+                'calendar_sync_status': 'not_synced',
+                'calendar_sync_error': False,
+            }
+            if clear_meeting_url:
+                vals['meeting_url'] = False
+            lesson._google_calendar_apply_updates(vals)
 
     @api.model_create_multi
     def create(self, vals_list):
@@ -437,5 +479,31 @@ class Lesson(models.Model):
                 raise ValidationError(
                     _('Chỉ có thể tạo bài học khi khóa học đã ở trạng thái "Đã xuất bản".')
                 )
-        return super().create(vals_list)
+        lessons = super().create(vals_list)
+        if not self.env.context.get('skip_google_calendar_sync'):
+            lessons._google_calendar_sync_if_needed()
+        return lessons
+
+    def write(self, vals):
+        if self.env.context.get('skip_google_calendar_sync'):
+            return super().write(vals)
+
+        was_scheduled = {lesson.id: lesson.state == 'scheduled' for lesson in self}
+        res = super().write(vals)
+
+        status_changed = 'state' in vals
+        sync_relevant = {'name', 'description', 'start_datetime', 'end_datetime', 'course_id', 'meeting_url'}
+        if status_changed:
+            became_unscheduled = self.filtered(lambda l: was_scheduled.get(l.id) and l.state != 'scheduled')
+            if became_unscheduled:
+                became_unscheduled._google_calendar_unsync(clear_meeting_url=True)
+
+        if status_changed or (set(vals.keys()) & sync_relevant):
+            self.filtered(lambda l: l.state == 'scheduled')._google_calendar_sync_if_needed()
+        return res
+
+    def unlink(self):
+        if not self.env.context.get('skip_google_calendar_sync'):
+            self._google_calendar_unsync(clear_meeting_url=False)
+        return super().unlink()
 
