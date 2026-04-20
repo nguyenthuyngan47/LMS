@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_lms_student_face_form" model="ir.ui.view">
+        <field name="name">lms.student.face.form</field>
+        <field name="model">lms.student</field>
+        <field name="inherit_id" ref="lms.view_lms_student_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//sheet" position="inside">
+                <group string="Ảnh mẫu khuôn mặt">
+                    <field name="face_sample_status" readonly="1"/>
+                    <field name="face_sample_message" readonly="1"/>
+                    <field name="face_embedding" invisible="1"/>
+                    <field name="face_sample_image" invisible="1"/>
+                    <div colspan="2" id="face-camera-mount"
+                         style="max-width:480px; padding:8px 0;">
+                        <a href="#" role="button"
+                           class="btn btn-secondary btn-sm"
+                           id="btn-open-face-camera">
+                            Mở camera chụp ảnh mẫu
+                        </a>
+                        <video id="face-video" autoplay="autoplay"
+                               style="display:none; width:100%;
+                                      max-width:480px; border-radius:8px;
+                                      background:#000; margin-top:8px;"></video>
+                        <canvas id="face-canvas" style="display:none;"></canvas>
+                        <div id="face-preview-wrap" style="display:none; margin-top:8px;">
+                            <img id="face-preview"
+                                 style="max-width:320px; border-radius:8px;"/>
+                        </div>
+                        <div id="face-btn-group"
+                             style="margin-top:8px; gap:8px; display:none;">
+                            <a href="#" role="button" class="btn btn-primary btn-sm"
+                                    id="btn-capture-face">Chụp ảnh</a>
+                            <a href="#" role="button" class="btn btn-warning btn-sm"
+                                    id="btn-retake-face"
+                                    style="display:none;">Chụp lại</a>
+                            <a href="#" role="button" class="btn btn-success btn-sm"
+                                    id="btn-save-face"
+                                    style="display:none;">Lưu ảnh mẫu</a>
+                        </div>
+                        <div id="face-msg" style="margin-top:8px; font-size:13px;"></div>
+                    </div>
+                </group>
+            </xpath>
+        </field>
+    </record>
+</odoo>

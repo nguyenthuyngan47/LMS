@@ -189,7 +189,10 @@ class Student(models.Model):
         if student_group:
             group_ids.append(student_group.id)
         company = self.env.company
-        user = Users.with_context(no_reset_password=True).create(
+        # Tránh res.users._lms_sync_profile_records tạo lms.student trùng trước khi super().create()
+        # của bản ghi đang mở form (ràng buộc SQL unique(user_id)).
+        user_ctx = dict(self.env.context, no_reset_password=True, skip_lms_profile_sync=True)
+        user = Users.with_context(**user_ctx).create(
             {
                 'name': display_name,
                 'login': login,
@@ -199,7 +202,7 @@ class Student(models.Model):
                 'groups_id': [(6, 0, group_ids)],
             }
         )
-        user.write({'password': _DEFAULT_STUDENT_AUTO_PASSWORD})
+        user.with_context(skip_lms_profile_sync=True).write({'password': _DEFAULT_STUDENT_AUTO_PASSWORD})
         phone = (vals.get('phone') or '').strip()
         if phone:
             user.partner_id.sudo().write({'phone': phone})

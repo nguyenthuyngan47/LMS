@@ -40,6 +40,8 @@ services:
       - USER=odoo
       - PASSWORD=odoo
       - ODOO_RC=/etc/odoo/odoo.conf
+      - OPENBLAS_NUM_THREADS=1
+      - OMP_NUM_THREADS=1
       - GEMINI_API_KEY=${GEMINI_API_KEY:-}
       # Đồng bộ CSV: master (hook + cron). 0 = tắt hết.
       - LMS_CSV_SYNC_ENABLED=${LMS_CSV_SYNC_ENABLED:-1}
@@ -57,6 +59,7 @@ services:
       # Module tùy chỉnh
       - ./addons:/mnt/extra-addons
       - ./lms:/mnt/extra-addons/lms
+      - ./lms_face_gate:/mnt/extra-addons/lms_face_gate
       # .env trên máy → đúng chỗ code tìm trong container (parent của thư mục lms = /mnt/extra-addons)
       # env_file: .env chỉ inject biến vào process, KHÔNG tạo file → load_dotenv cần mount này
       - ./.env:/mnt/extra-addons/.env:ro

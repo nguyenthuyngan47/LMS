@@ -2,6 +2,18 @@ FROM odoo:18.0
 
 USER root
 
+# Build tools cho dlib (face_recognition)
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        cmake \
+        build-essential \
+        python3-dev \
+        libopenblas-dev \
+        liblapack-dev \
+        libjpeg-dev \
+        zlib1g-dev \
+    && rm -rf /var/lib/apt/lists/*
+
 # KHÔNG upgrade pip nữa
 # Cài luôn dependencies
 RUN pip3 install --no-cache-dir --break-system-packages \
@@ -9,6 +21,9 @@ RUN pip3 install --no-cache-dir --break-system-packages \
     google-auth \
     google-auth-oauthlib \
     google-auth-httplib2 \
-    requests
+    requests \
+    numpy \
+    opencv-python-headless \
+    face_recognition
 
 USER odoo
