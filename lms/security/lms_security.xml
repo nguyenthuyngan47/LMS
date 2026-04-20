@@ -45,6 +45,23 @@
             <field name="perm_unlink" eval="0"/>
         </record>
 
+        <!-- Học sinh: chỉ xem bài học thuộc khóa đã đăng ký (approved/learning), đã publish -->
+        <record id="rule_lms_lesson_student_attendee_only" model="ir.rule">
+            <field name="name">LMS Student - Lessons Of Enrolled Courses</field>
+            <field name="model_id" ref="model_lms_lesson"/>
+            <field name="domain_force">
+                [
+                    ('course_id.student_course_ids.student_id.user_id', '=', user.id),
+                    ('state', '!=', 'draft')
+                ]
+            </field>
+            <field name="groups" eval="[(4, ref('lms.group_lms_user'))]"/>
+            <field name="perm_read" eval="1"/>
+            <field name="perm_write" eval="0"/>
+            <field name="perm_create" eval="0"/>
+            <field name="perm_unlink" eval="0"/>
+        </record>
+
         <!-- Giáo viên: xem mọi khóa học; chỉ tạo/sửa khóa học do mình là instructor_id (OR với rule dưới). -->
         <record id="rule_lms_course_instructor_owned" model="ir.rule">
             <field name="name">LMS Instructor - View All Courses</field>
