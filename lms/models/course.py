@@ -412,6 +412,11 @@ class Lesson(models.Model):
         required=True,
         copy=False,
     )
+    calendar_color = fields.Integer(
+        string='Màu lịch',
+        compute='_compute_calendar_color',
+        store=False,
+    )
     is_published = fields.Boolean(string='Hiển thị cho học sinh', default=False, copy=False)
     calendar_sync_status = fields.Selection(
         [
@@ -426,6 +431,18 @@ class Lesson(models.Model):
     calendar_sync_error = fields.Text(string='Calendar Sync Error', copy=False)
     google_event_id = fields.Char(string='Google Event ID', copy=False, readonly=True)
     google_event_html_link = fields.Char(string='Google Event Link', copy=False, readonly=True)
+
+    @api.depends('state')
+    def _compute_calendar_color(self):
+        # Odoo calendar color index
+        color_map = {
+            'scheduled': 10,  # xanh lá
+            'cancelled': 1,   # đỏ
+            'done': 3,        # xanh dương
+            'draft': 0,
+        }
+        for lesson in self:
+            lesson.calendar_color = color_map.get(lesson.state, 0)
 
     def _google_calendar_apply_updates(self, vals):
         return self.with_context(skip_google_calendar_sync=True).write(vals)
