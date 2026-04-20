@@ -7,7 +7,22 @@
     <!-- Khi click "Khóa học" mở danh sách khóa học -->
     <menuitem id="menu_lms_courses" name="Khóa học" sequence="20" action="action_lms_course" web_icon="lms,static/description/icon.png"/>
     <menuitem id="menu_lms_courses_list" name="Danh sách khóa học" parent="menu_lms_courses" action="action_lms_course" sequence="10"/>
-    <menuitem id="menu_lms_lession" name="Lịch học" parent="menu_lms_courses" action="action_lms_student_lesson_calendar" sequence="15"/>
+    <menuitem
+        id="menu_lms_lession"
+        name="Lịch học"
+        parent="menu_lms_courses"
+        action="action_lms_student_lesson_calendar"
+        sequence="15"
+        groups="lms.group_lms_user"
+    />
+    <menuitem
+        id="menu_lms_teaching_schedule"
+        name="Lịch dạy"
+        parent="menu_lms_courses"
+        action="action_lms_instructor_lesson_calendar"
+        sequence="16"
+        groups="lms.group_lms_instructor"
+    />
     <menuitem id="menu_lms_course_categories" name="Danh mục" parent="menu_lms_courses" action="action_lms_course_category" sequence="20"/>
     <menuitem id="menu_lms_course_levels" name="Cấp độ" parent="menu_lms_courses" action="action_lms_course_level" sequence="30"/>
     <menuitem id="menu_lms_course_tags" name="Nhãn" parent="menu_lms_courses" action="action_lms_course_tag" sequence="40"/>
