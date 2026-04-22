@@ -89,7 +89,7 @@ class Course(models.Model):
         compute='_compute_current_user_registration_state',
     )
     is_student_course_readonly = fields.Boolean(
-        string='Form khóa học chỉ đọc (học sinh)',
+        string='Form khóa học chỉ đọc (học viên)',
         compute='_compute_is_student_course_readonly',
     )
 
@@ -270,7 +270,7 @@ class Course(models.Model):
                 'tag': 'display_notification',
                 'params': {
                     'title': _('Đăng ký khóa học'),
-                    'message': _('Chỉ tài khoản học sinh mới được đăng ký khóa học.'),
+                    'message': _('Chỉ tài khoản học viên mới được đăng ký khóa học.'),
                     'type': 'warning',
                     'sticky': False,
                     'next': {'type': 'ir.actions.client', 'tag': 'reload'},
@@ -284,7 +284,7 @@ class Course(models.Model):
                 'tag': 'display_notification',
                 'params': {
                     'title': _('Đăng ký khóa học'),
-                    'message': _('Tài khoản của bạn chưa liên kết hồ sơ sinh viên.'),
+                    'message': _('Tài khoản của bạn chưa liên kết hồ sơ học viên.'),
                     'type': 'warning',
                     'sticky': False,
                     'next': {'type': 'ir.actions.client', 'tag': 'reload'},
@@ -417,7 +417,7 @@ class Lesson(models.Model):
         compute='_compute_calendar_color',
         store=False,
     )
-    is_published = fields.Boolean(string='Hiển thị cho học sinh', default=False, copy=False)
+    is_published = fields.Boolean(string='Hiển thị cho học viên', default=False, copy=False)
     calendar_sync_status = fields.Selection(
         [
             ('not_synced', 'Not Synced'),

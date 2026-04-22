@@ -13,7 +13,7 @@ class ResUsers(models.Model):
 
     lms_signup_channel = fields.Selection(
         selection=[
-            ('student', 'Học sinh'),
+            ('student', 'Học viên'),
             ('lecturer', 'Giảng viên'),
         ],
         string='Kênh đăng ký LMS',

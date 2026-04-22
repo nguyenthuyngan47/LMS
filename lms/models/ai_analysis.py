@@ -124,7 +124,7 @@ class AIAnalysis(models.Model):
         prompt = f"""
 Bạn là một hệ thống AI đề xuất khóa học thông minh.
 
-Thông tin sinh viên:
+Thông tin học viên:
 - Trình độ hiện tại: {student.current_level}
 - Mục tiêu học tập: {student.learning_goals or 'Chưa có'}
 - Kỹ năng mong muốn: {student.desired_skills or 'Chưa có'}
@@ -135,7 +135,7 @@ Thông tin sinh viên:
 Danh sách khóa học có sẵn:
 {chr(10).join(available_courses_info)}
 
-Hãy đề xuất top 10 khóa học phù hợp nhất cho sinh viên này. 
+Hãy đề xuất top 10 khóa học phù hợp nhất cho học viên này. 
 Trả về kết quả dưới dạng JSON array với format:
 [
   {{"course_name": "Tên khóa học", "reason": "Lý do đề xuất", "priority": "high|medium|low"}},
