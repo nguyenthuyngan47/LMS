@@ -284,7 +284,7 @@ class Course(models.Model):
                 'tag': 'display_notification',
                 'params': {
                     'title': _('Đăng ký khóa học'),
-                    'message': _('Tài khoản của bạn chưa liên kết hồ sơ sinh viên.'),
+                    'message': _('Tài khoản của bạn chưa liên kết hồ sơ học viên.'),
                     'type': 'warning',
                     'sticky': False,
                     'next': {'type': 'ir.actions.client', 'tag': 'reload'},

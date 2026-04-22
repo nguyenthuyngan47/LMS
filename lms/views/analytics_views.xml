@@ -20,7 +20,7 @@
                 <group expand="0" string="Nhóm theo">
                     <filter string="Khóa học" name="group_course" context="{'group_by': 'course_id'}"/>
                     <filter string="Trạng thái" name="group_status" context="{'group_by': 'status'}"/>
-                    <filter string="Sinh viên" name="group_student" context="{'group_by': 'student_id'}"/>
+                    <filter string="Học viên" name="group_student" context="{'group_by': 'student_id'}"/>
                 </group>
             </search>
         </field>

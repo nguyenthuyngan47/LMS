@@ -10,7 +10,7 @@ class Roadmap(models.Model):
     _order = 'create_date desc'
 
     name = fields.Char(string='Tên roadmap', compute='_compute_name', store=True)
-    student_id = fields.Many2one('lms.student', string='Sinh viên', required=True, ondelete='cascade', index=True)
+    student_id = fields.Many2one('lms.student', string='Học viên', required=True, ondelete='cascade', index=True)
     
     # Thời gian
     create_date = fields.Datetime(string='Ngày tạo', readonly=True, default=fields.Datetime.now)

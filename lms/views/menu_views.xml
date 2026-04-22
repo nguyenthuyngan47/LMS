@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-    <!-- Sinh viên -->
-    <menuitem id="menu_lms_students" name="Sinh viên" action="action_lms_student" sequence="10" web_icon="lms,static/description/icon.png"/>
+    <!-- Học viên -->
+    <menuitem id="menu_lms_students" name="Học viên" action="action_lms_student" sequence="10" web_icon="lms,static/description/icon.png"/>
 
     <!-- Khóa học -->
     <!-- Khi click "Khóa học" mở danh sách khóa học -->

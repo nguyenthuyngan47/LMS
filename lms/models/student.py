@@ -13,10 +13,10 @@ _DEFAULT_STUDENT_AUTO_PASSWORD = "123456"
 
 class Student(models.Model):
     _name = 'lms.student'
-    _description = 'Sinh viên'
+    _description = 'Học viên'
     _inherit = ['mail.thread', 'mail.activity.mixin']
 
-    name = fields.Char(string='Tên sinh viên', required=True, tracking=True)
+    name = fields.Char(string='Tên học viên', required=True, tracking=True)
     email = fields.Char(string='Email', required=True, tracking=True)
     
     @api.constrains('email')
@@ -143,7 +143,7 @@ class Student(models.Model):
     inactive_days = fields.Integer(string='Số ngày không hoạt động', compute='_compute_inactive_days', store=True, index=True)
 
     _sql_constraints = [
-        ('student_user_unique', 'unique(user_id)', 'Mỗi tài khoản chỉ gắn với một sinh viên.'),
+        ('student_user_unique', 'unique(user_id)', 'Mỗi tài khoản chỉ gắn với một học viên.'),
     ]
 
     @api.model
@@ -164,7 +164,7 @@ class Student(models.Model):
         display_name = (vals.get('name') or '').strip()
         if not display_name:
             raise ValidationError(
-                _('Thiếu tên sinh viên: bắt buộc để tạo hoặc gán tài khoản đăng nhập.')
+                _('Thiếu tên học viên: bắt buộc để tạo hoặc gán tài khoản đăng nhập.')
             )
         email_norm = email_normalize(vals.get('email'))
         if not email_norm:
@@ -178,7 +178,7 @@ class Student(models.Model):
         if existing:
             if self.sudo().search_count([('user_id', '=', existing.id)]):
                 raise ValidationError(
-                    _('Email/login đã được dùng cho sinh viên khác: %s') % login
+                    _('Email/login đã được dùng cho học viên khác: %s') % login
                 )
             vals['user_id'] = existing.id
             return
@@ -299,7 +299,7 @@ class Student(models.Model):
             'params': {
                 'title': _('Cập nhật trạng thái'),
                 'message': _(
-                    'Đã cập nhật trạng thái "%s" cho %s học sinh.'
+                    'Đã cập nhật trạng thái "%s" cho %s học viên.'
                 ) % (
                     dict(self._fields['current_course_registration_status'].selection).get(new_status, new_status),
                     len(updated),
@@ -440,7 +440,7 @@ class Student(models.Model):
                     template.send_mail(record.id, force_send=True)
     
     def action_generate_roadmap(self):
-        """Tạo roadmap đề xuất cho sinh viên"""
+        """Tạo roadmap đề xuất cho học viên"""
         self.ensure_one()
         return {
             'type': 'ir.actions.act_window',
@@ -479,10 +479,10 @@ class Student(models.Model):
 
 class StudentCourse(models.Model):
     _name = 'lms.student.course'
-    _description = 'Khóa học của sinh viên'
+    _description = 'Khóa học của học viên'
     _rec_name = 'course_id'
 
-    student_id = fields.Many2one('lms.student', string='Sinh viên', required=True, ondelete='cascade')
+    student_id = fields.Many2one('lms.student', string='Học viên', required=True, ondelete='cascade')
     course_id = fields.Many2one(
         'lms.course', string='Khóa học', required=True, ondelete='cascade'
     )

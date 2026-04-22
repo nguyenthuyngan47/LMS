@@ -33,7 +33,7 @@ class RoadmapController(http.Controller):
                 else:
                     result = {
                         'success': False,
-                        'message': 'Không tìm thấy thông tin sinh viên'
+                        'message': 'Không tìm thấy thông tin học viên'
                     }
                     return make_json_response(
                         result,

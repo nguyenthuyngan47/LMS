@@ -6,7 +6,7 @@
                 <span>Đăng ký </span>
                 <a href="/lms/dang-ky/giang-vien" class="text-decoration-underline" style="text-decoration: underline;">giảng viên</a>
                 <span> hoặc </span>
-                <a href="/lms/dang-ky/hoc-sinh" class="text-decoration-underline" style="text-decoration: underline;">sinh viên</a>
+                <a href="/lms/dang-ky/hoc-sinh" class="text-decoration-underline" style="text-decoration: underline;">học viên</a>
             </div>
         </xpath>
     </template>
