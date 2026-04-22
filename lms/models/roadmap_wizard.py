@@ -7,7 +7,7 @@ class RoadmapWizard(models.TransientModel):
     _name = 'lms.roadmap.wizard'
     _description = 'Wizard tạo roadmap'
 
-    student_id = fields.Many2one('lms.student', string='Sinh viên', required=True)
+    student_id = fields.Many2one('lms.student', string='Học viên', required=True)
     method = fields.Selection([
         ('content_based', 'Content-Based Filtering'),
         ('rule_based', 'Rule-Based Recommendation'),

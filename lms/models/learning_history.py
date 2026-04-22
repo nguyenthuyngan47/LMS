@@ -13,8 +13,8 @@ class LearningHistory(models.Model):
     _description = 'Lịch sử học tập'
     _order = 'date desc, create_date desc'
 
-    student_id = fields.Many2one('lms.student', string='Sinh viên', required=True, ondelete='cascade', index=True)
-    student_course_id = fields.Many2one('lms.student.course', string='Khóa học của sinh viên', ondelete='cascade')
+    student_id = fields.Many2one('lms.student', string='Học viên', required=True, ondelete='cascade', index=True)
+    student_course_id = fields.Many2one('lms.student.course', string='Khóa học của học viên', ondelete='cascade')
     course_id = fields.Many2one('lms.course', string='Khóa học', related='student_course_id.course_id', store=True)
     lesson_id = fields.Many2one('lms.lesson', string='Bài học', required=True, ondelete='cascade')
     instructor_id = fields.Many2one(
